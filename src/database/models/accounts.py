@@ -1,5 +1,6 @@
 from datetime import datetime, date, timedelta, timezone
-from sqlalchemy import Column, Integer, String, Float, Enum, Boolean, DateTime, true, func, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Enum, Boolean, DateTime, true, func, ForeignKey, Text, Date, \
+    UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 import enum
 from typing import List, Optional
@@ -61,3 +62,23 @@ class UserModel(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+
+
+class UserProfileModel(Base):
+    __tablename__ = "user_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    first_name: Mapped[Optional[str]] = mapped_column(String(100))
+    last_name: Mapped[Optional[str]] = mapped_column(String(100))
+    avatar: Mapped[Optional[str]] = mapped_column(String(255))
+    gender: Mapped[Optional[GenderEnum]] = mapped_column(Enum(GenderEnum))
+    date_of_birth: Mapped[Optional[date]] = mapped_column(Date)
+    info: Mapped[Optional[str]] = mapped_column(Text)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True)
+    user: Mapped[UserModel] = relationship("UserModel", back_populates="profile")
+
+    __table_args__ = (UniqueConstraint("user_id"),)
