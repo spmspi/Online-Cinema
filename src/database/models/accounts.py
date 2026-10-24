@@ -18,7 +18,7 @@ class GenderEnum(str, enum.Enum):
     MAN = "man"
     WOMAN = "woman"
 
-class UserGroup(Base):
+class UserGroupModel(Base):
     __tablename__ = "user_groups"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -82,3 +82,4 @@ class UserProfileModel(Base):
     user: Mapped[UserModel] = relationship("UserModel", back_populates="profile")
 
     __table_args__ = (UniqueConstraint("user_id"),)
+
