@@ -8,24 +8,59 @@ from .base import Base
 MoviesGenresModel = Table(
     "movie_genres",
     Base.metadata,
-    Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True, nullable=False),
-    Column("genre_id", Integer, ForeignKey("genres.id", ondelete="CASCADE"), primary_key=True, nullable=False),
+    Column(
+        "movie_id",
+        Integer,
+        ForeignKey("movies.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
+    Column(
+        "genre_id",
+        Integer,
+        ForeignKey("genres.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
 )
 
 MovieStarsModel = Table(
     "movie_stars",
     Base.metadata,
-    Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True, nullable=False),
-    Column("star_id", Integer, ForeignKey("stars.id", ondelete="CASCADE"), primary_key=True, nullable=False),
+    Column(
+        "movie_id",
+        Integer,
+        ForeignKey("movies.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
+    Column(
+        "star_id",
+        Integer,
+        ForeignKey("stars.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
 )
 
 MovieDirectorModel = Table(
     "movie_directors",
     Base.metadata,
-    Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True, nullable=False),
-    Column("director_id", Integer, ForeignKey("directors.id", ondelete="CASCADE"), primary_key=True, nullable=False),
+    Column(
+        "movie_id",
+        Integer,
+        ForeignKey("movies.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
+    Column(
+        "director_id",
+        Integer,
+        ForeignKey("directors.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
 )
-
 
 
 class GenreModel(Base):
@@ -34,23 +69,26 @@ class GenreModel(Base):
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
 
+
 class StarModel(Base):
     __tablename__ = "stars"
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
+
 
 class DirectorModel(Base):
     __tablename__ = "directors"
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
 
+
 class CertificationModel(Base):
     __tablename__ = "certifications"
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
-    movie_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True)
-
-
+    movie_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True
+    )
 
 
 class MovieModel(Base):
@@ -66,19 +104,15 @@ class MovieModel(Base):
     gross: Mapped[float] = mapped_column(Float)
     description: Mapped[str] = mapped_column(String)
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
-    certification_id: Mapped[int] = mapped_column(Integer, ForeignKey("certifications.id"))
+    certification_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("certifications.id")
+    )
     genres: Mapped[list["GenreModel"]] = relationship(
-        "GenreModel",
-        secondary=MoviesGenresModel,
-        back_populates="movies"
+        "GenreModel", secondary=MoviesGenresModel, back_populates="movies"
     )
     stars: Mapped[list["StarModel"]] = relationship(
-        "StarModel",
-        secondary=MovieStarsModel,
-        back_populates="stars"
+        "StarModel", secondary=MovieStarsModel, back_populates="stars"
     )
     directors: Mapped[list["GenreModel"]] = relationship(
-        "DirectorModel",
-        secondary=MovieDirectorModel,
-        back_populates="directors"
+        "DirectorModel", secondary=MovieDirectorModel, back_populates="directors"
     )
