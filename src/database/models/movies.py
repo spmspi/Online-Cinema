@@ -6,7 +6,7 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship
 from .base import Base
 
 MoviesGenresModel = Table(
-    "movies_genres",
+    "movie_genres",
     Base.metadata,
     Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True, nullable=False),
     Column("genre_id", Integer, ForeignKey("genres.id", ondelete="CASCADE"), primary_key=True, nullable=False),
@@ -19,6 +19,15 @@ MovieStarsModel = Table(
     Column("star_id", Integer, ForeignKey("stars.id", ondelete="CASCADE"), primary_key=True, nullable=False),
 )
 
+MovieDirectorModel = Table(
+    "movie_directors",
+    Base.metadata,
+    Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True, nullable=False),
+    Column("director_id", Integer, ForeignKey("directors.id", ondelete="CASCADE"), primary_key=True, nullable=False),
+)
+
+
+
 class GenreModel(Base):
     __tablename__ = "genres"
 
@@ -29,6 +38,19 @@ class StarModel(Base):
     __tablename__ = "stars"
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
+
+class DirectorModel(Base):
+    __tablename__ = "directors"
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    name: Mapped[str] = Column(String, nullable=False, unique=True)
+
+class CertificationModel(Base):
+    __tablename__ = "certifications"
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    name: Mapped[str] = Column(String, nullable=False, unique=True)
+    movie_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True)
+
+
 
 
 class MovieModel(Base):
@@ -50,15 +72,13 @@ class MovieModel(Base):
         secondary=MoviesGenresModel,
         back_populates="movies"
     )
-    actors: Mapped[list["GenreModel"]] = relationship(
+    stars: Mapped[list["StarModel"]] = relationship(
         "StarModel",
         secondary=MovieStarsModel,
         back_populates="stars"
     )
-
-
-class CertificationModel(Base):
-    __tablename__ = "certifications"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    directors: Mapped[list["GenreModel"]] = relationship(
+        "DirectorModel",
+        secondary=MovieDirectorModel,
+        back_populates="directors"
+    )
