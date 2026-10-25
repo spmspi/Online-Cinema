@@ -1,13 +1,12 @@
 from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import Column, Integer, String, Float, Enum, Boolean, DateTime, true, func, ForeignKey, Text, Date, \
     UniqueConstraint
-from sqlalchemy.ext.declarative import declarative_base
 import enum
 from typing import List, Optional
+from .base import Base
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-Base = declarative_base()
 
 class UserGroupEnum(str, enum.Enum):
     USER = "user"
