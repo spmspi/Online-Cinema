@@ -116,3 +116,8 @@ class MovieModel(Base):
     directors: Mapped[list["GenreModel"]] = relationship(
         "DirectorModel", secondary=MovieDirectorModel, back_populates="directors"
     )
+
+    @classmethod
+    def default_order_by(cls):
+        return [cls.id.desc()]
+
