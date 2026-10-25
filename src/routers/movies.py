@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Query, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Query, HTTPException, Depends
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.engine import get_db
 from src.database.models.movies import MovieModel
+from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema
 
 router = APIRouter()
 
 @router.get("/movies/", response_model=MovieListResponseSchema)
 async def get_movies_list(
         page: int = Query(0, ge=1),
-        limit: int = Query(10, ge=1, le=20)
-        db: AsyncSession = Deppends(get_db)
+        limit: int = Query(10, ge=1, le=20),
+        db: AsyncSession = Depends(get_db)
 ):
 
     offset = (page - 1) * limit

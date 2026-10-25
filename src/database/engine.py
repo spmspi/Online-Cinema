@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 
 SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://user:password@localhost/online_cinema"
 
-engine = create_async_engine(SQLALCHEMY_DATABASE_URL, echo=True, future=True, connect_args={"check_same_thread": False})
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL, echo=True, future=True)
 SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False, future=True)
 
 async def get_db():
