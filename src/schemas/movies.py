@@ -3,7 +3,6 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from src.database.models.movies import MovieModel
 
 class MovieListItemSchema(BaseModel):
     id: int
