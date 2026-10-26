@@ -5,7 +5,7 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from .base import Base
 
-MoviesGenresModel = Table(
+MovieGenresModel = Table(
     "movie_genres",
     Base.metadata,
     Column(
@@ -68,18 +68,20 @@ class GenreModel(Base):
 
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
-
+    movies = relationship("MovieModel", secondary=MovieGenresModel, back_populates="genres")
 
 class StarModel(Base):
     __tablename__ = "stars"
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
+    movies = relationship("MovieModel", secondary=MovieStarsModel, back_populates="stars")
 
 
 class DirectorModel(Base):
     __tablename__ = "directors"
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
+    movies = relationship("MovieModel", secondary=MovieDirectorModel, back_populates="directors")
 
 
 class CertificationModel(Base):
@@ -108,13 +110,13 @@ class MovieModel(Base):
         Integer, ForeignKey("certifications.id")
     )
     genres: Mapped[list["GenreModel"]] = relationship(
-        "GenreModel", secondary=MoviesGenresModel, back_populates="movies"
+        "GenreModel", secondary=MovieGenresModel, back_populates="movies"
     )
     stars: Mapped[list["StarModel"]] = relationship(
-        "StarModel", secondary=MovieStarsModel, back_populates="stars"
+        "StarModel", secondary=MovieStarsModel, back_populates="movies"
     )
-    directors: Mapped[list["GenreModel"]] = relationship(
-        "DirectorModel", secondary=MovieDirectorModel, back_populates="directors"
+    directors: Mapped[list["DirectorModel"]] = relationship(
+        "DirectorModel", secondary=MovieDirectorModel, back_populates="movies"
     )
 
     @classmethod
