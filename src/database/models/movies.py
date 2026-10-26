@@ -106,6 +106,9 @@ class MovieModel(Base):
     gross: Mapped[float] = mapped_column(Float)
     description: Mapped[str] = mapped_column(String)
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
+    certification_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("certifications.id"), nullable=False
+    )
     certification: Mapped["CertificationModel"] = relationship(
         "CertificationModel", back_populates="movies"
     )

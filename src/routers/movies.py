@@ -21,7 +21,7 @@ async def get_movies_list(
     total_items = result_count.scalar()
 
     if not total_items:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
+        raise HTTPException(status_code=404, detail="No movies found.")
 
     order_by = MovieModel.default_order_by()
     stmt = select(MovieModel)
@@ -34,7 +34,7 @@ async def get_movies_list(
     movies = result_movies.scalars().all()
 
     if not movies:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
+        raise HTTPException(status_code=404, detail="No movies found.")
 
     movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
 
