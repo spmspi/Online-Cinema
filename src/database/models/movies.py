@@ -88,8 +88,8 @@ class CertificationModel(Base):
     __tablename__ = "certifications"
     id: Mapped[int] = Column(Integer, primary_key=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
-    movie_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True
+    movies: Mapped[list["MovieModel"]] = relationship(
+        "MovieModel", back_populates="certification"
     )
 
 
@@ -106,8 +106,8 @@ class MovieModel(Base):
     gross: Mapped[float] = mapped_column(Float)
     description: Mapped[str] = mapped_column(String)
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
-    certification_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("certifications.id")
+    certification: Mapped["CertificationModel"] = relationship(
+        "CertificationModel", back_populates="movies"
     )
     genres: Mapped[list["GenreModel"]] = relationship(
         "GenreModel", secondary=MovieGenresModel, back_populates="movies"

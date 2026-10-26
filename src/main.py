@@ -1,9 +1,12 @@
 from fastapi import FastAPI
-
+from .lifespan import lifespan
 from src.routers.movies import router
 
-app = FastAPI()
-
+app = FastAPI(
+    title="Cinema",
+    description="Description of project",
+    lifespan=lifespan
+)
 @app.get("/")
 async def read_root():
     return {"message": "Hello, World!"}
