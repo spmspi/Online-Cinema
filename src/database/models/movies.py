@@ -1,8 +1,9 @@
+import uuid
 from typing import List
 
 from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table
 from sqlalchemy.orm import mapped_column, Mapped, relationship
-
+from sqlalchemy.dialects import postgresql as psql
 from .base import Base
 
 MovieGenresModel = Table(
@@ -66,27 +67,27 @@ MovieDirectorModel = Table(
 class GenreModel(Base):
     __tablename__ = "genres"
 
-    id: Mapped[int] = Column(Integer, primary_key=True)
+    id: Mapped[int] = Column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
     movies = relationship("MovieModel", secondary=MovieGenresModel, back_populates="genres")
 
 class StarModel(Base):
     __tablename__ = "stars"
-    id: Mapped[int] = Column(Integer, primary_key=True)
+    id: Mapped[int] = Column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
     movies = relationship("MovieModel", secondary=MovieStarsModel, back_populates="stars")
 
 
 class DirectorModel(Base):
     __tablename__ = "directors"
-    id: Mapped[int] = Column(Integer, primary_key=True)
+    id: Mapped[int] = Column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
     movies = relationship("MovieModel", secondary=MovieDirectorModel, back_populates="directors")
 
 
 class CertificationModel(Base):
     __tablename__ = "certifications"
-    id: Mapped[int] = Column(Integer, primary_key=True)
+    id: Mapped[int] = Column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = Column(String, nullable=False, unique=True)
     movies: Mapped[list["MovieModel"]] = relationship(
         "MovieModel", back_populates="certification"
@@ -95,8 +96,12 @@ class CertificationModel(Base):
 
 class MovieModel(Base):
     __tablename__ = "movies"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uuid: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    uuid_movie: Mapped[uuid.UUID] = mapped_column(
+        psql.UUID(as_uuid=True),
+        unique=True,
+        default=uuid.uuid4
+    )
     name: Mapped[str] = mapped_column(String, nullable=False)
     year: Mapped[int] = mapped_column(Integer, nullable=False)
     time: Mapped[int] = mapped_column(Integer, nullable=False)

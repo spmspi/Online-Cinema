@@ -22,3 +22,46 @@ class MovieListResponseSchema(BaseModel):
     total_items: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class CertificationSchema(BaseModel):
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class GenresSchema(BaseModel):
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class StarsSchema(BaseModel):
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class DirectorsSchema(BaseModel):
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class MovieCreateRequestSchema(BaseModel):
+    name: str
+    year: int
+    time: int
+    imdb: float
+    votes: int
+    meta_score: float
+    gross: float
+    description: str
+    price: float
+    certification: str
+    genres: List[str]
+    stars: List[str]
+    directors: List[str]
+    model_config = ConfigDict(from_attributes=True)
+
+class MovieDetailResponseSchema(MovieCreateRequestSchema):
+    id: int
+    certification: CertificationSchema
+    genres: List[GenresSchema]
+    stars: List[StarsSchema]
+    directors: List[DirectorsSchema]
