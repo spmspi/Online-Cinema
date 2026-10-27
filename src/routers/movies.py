@@ -2,10 +2,12 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from src.database.engine import get_db
 from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel
-from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, MovieCreateRequestSchema
+from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
+    MovieCreateRequestSchema, MovieUpdateSchema
 
 router = APIRouter()
 
@@ -136,3 +138,64 @@ async def create_movie(
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"{e}")
+
+@router.get("/movies/{movie_id}", response_model=MovieDetailResponseSchema)
+async def get_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
+    stmt = select(MovieModel).where(MovieModel.id == movie_id).options(
+        joinedload(MovieModel.certification),
+        joinedload(MovieModel.genres),
+        joinedload(MovieModel.stars),
+        joinedload(MovieModel.directors)
+    )
+
+    result = await db.execute(stmt)
+    movie = result.scalars().first()
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie with the given ID was not found.")
+
+    return MovieDetailResponseSchema.model_validate(movie)
+
+@router.delete("/movies/{movie_id}")
+async def delete_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
+    stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    result = await db.execute(stmt)
+    movie = result.scalars().first()
+    if not movie:
+        raise HTTPException(
+            status_code=404,
+            detail="Movie with the given ID was not found."
+        )
+
+    await db.delete(movie)
+    await db.commit()
+
+    return {"detail": "Movie deleted successfully."}
+
+
+@router.patch("/movies/{movie_id}")
+async def update_movie(
+        movie_id: int,
+        movie_data: MovieUpdateSchema,
+        db: AsyncSession = Depends(get_db)
+):
+    stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    result = await db.execute(stmt)
+    movie = result.scalars().first()
+
+    if not movie:
+        raise HTTPException(
+            status_code=404,
+            detail="Movie with the given ID was not found."
+        )
+
+    for field, value in movie_data.model_dump(exclude_unset=True).items():
+        setattr(movie, field, value)
+
+    try:
+        await db.commit()
+        await db.refresh(movie)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Invalid input data.")
+
+    return {"detail": "Movie updated successfully."}

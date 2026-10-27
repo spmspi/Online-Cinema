@@ -65,3 +65,17 @@ class MovieDetailResponseSchema(MovieCreateRequestSchema):
     genres: List[GenresSchema]
     stars: List[StarsSchema]
     directors: List[DirectorsSchema]
+
+
+class MovieUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    year: Optional[int] = None
+    time: Optional[int] = None
+    imdb: Optional[float] = None
+    votes: Optional[int] = None
+    meta_score: Optional[float] = None
+    gross: Optional[float] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+
+
