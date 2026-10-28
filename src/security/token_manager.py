@@ -3,8 +3,8 @@ from typing import Optional
 
 from jose import jwt, JWTError, ExpiredSignatureError
 
-from exceptions import TokenExpiredError, InvalidTokenError
-from interface_token import JWTAuthManagerInterface
+from src.security.exceptions import TokenExpiredError, InvalidTokenError
+from src.security.interface_token import JWTAuthManagerInterface
 
 
 class JWTAuthManager(JWTAuthManagerInterface):
