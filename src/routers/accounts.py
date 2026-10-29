@@ -13,7 +13,7 @@ from src.database.models.accounts import (
     RefreshTokenModel,
 )
 from src.database.engine import get_db
-from src.dependencies import get_jwt_auth_manager
+from src.dependencies import get_jwt_auth_manager, get_current_user
 from src.schemas.accounts import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
@@ -288,3 +288,26 @@ async def reset_password(
         )
 
     return MessageResponseSchema(message="Password reset successfully.")
+
+
+@router.post(
+    "/logout/",
+    response_model=MessageResponseSchema,
+)
+async def logout_user(
+        user: UserModel = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(RefreshTokenModel).filter_by(user_id=user.id)
+    result = await db.execute(stmt)
+    token = result.scalars().first()
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user",
+        )
+    await db.delete(token)
+    await db.commit()
+    return MessageResponseSchema(message="Logout successfully.")
+
+
