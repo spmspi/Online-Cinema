@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
+from typing import Optional
 
 from src.database.models.accounts import UserModel
 from src.dependencies import get_user_group
@@ -14,46 +15,66 @@ from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, Mov
 
 router = APIRouter()
 
+
 @router.get("/movies/", response_model=MovieListResponseSchema)
 async def get_movies_list(
-        page: int = Query(0, ge=1),
+        page: int = Query(1, ge=1),
         limit: int = Query(10, ge=1, le=20),
+        search: Optional[str] = Query(None, description="Search by title, description, actor, or director"),
         db: AsyncSession = Depends(get_db)
 ):
-
     offset = (page - 1) * limit
-    count_stmt = select(func.count(MovieModel.id))
+
+    base_query = select(MovieModel)
+
+    if search:
+        search_query = f"%{search}%"
+        search_filter = or_(
+            MovieModel.name.ilike(search_query),
+            MovieModel.description.ilike(search_query),
+            MovieModel.stars.any(StarModel.name.ilike(search_query)),
+            MovieModel.directors.any(DirectorModel.name.ilike(search_query))
+        )
+        base_query = base_query.where(search_filter)
+
+    count_stmt = select(func.count()).select_from(base_query.subquery())
     result_count = await db.execute(count_stmt)
     total_items = result_count.scalar() or 0
 
-    if not total_items:
+    if total_items == 0:
         raise HTTPException(status_code=404, detail="No movies found.")
 
     order_by = MovieModel.default_order_by()
-    stmt = select(MovieModel)
     if order_by:
-        stmt = stmt.order_by(*order_by)
+        base_query = base_query.order_by(*order_by)
 
-    stmt = stmt.offset(offset).limit(limit)
+    paginated_stmt = base_query.offset(offset).limit(limit)
 
-    result_movies = await db.execute(stmt)
+    result_movies = await db.execute(paginated_stmt)
     movies = result_movies.scalars().all()
 
     if not movies:
-        raise HTTPException(status_code=404, detail="No movies found.")
+        raise HTTPException(status_code=404, detail="No movies found for this page.")
 
     movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
 
     total_pages = (total_items + limit - 1) // limit
 
+    def build_page_url(target_page: int) -> str:
+        url = f"/theater/movies/?page={target_page}&limit={limit}"
+        if search:
+            url += f"&search={search}"
+        return url
+
     response = MovieListResponseSchema(
         movies=movie_list,
-        prev_page=f"/theater/movies/?page={page - 1}&per_page={limit}" if page > 1 else None,
-        next_page=f"/theater/movies/?page={page + 1}&per_page={limit}" if page < total_pages else None,
+        prev_page=build_page_url(page - 1) if page > 1 else None,
+        next_page=build_page_url(page + 1) if page < total_pages else None,
         total_pages=total_pages,
         total_items=total_items,
     )
     return response
+
 
 @router.post("/movies/", response_model=MovieDetailResponseSchema)
 async def create_movie(
