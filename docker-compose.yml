@@ -8,6 +8,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cinema_network
 
   web:
     container_name: cinema_web
@@ -19,15 +21,60 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      - minio
       - db
+      - minio_mc
     volumes:
       - ./src:/app/src
+    networks:
+      - cinema_network
+
+
   adminer:
     image: adminer
     restart: always
     ports:
       - "8080:8080"
+    networks:
+      - cinema_network
+
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: minio-cinema
+    command: server --console-address ":9001" /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    env_file:
+      - .env
+    volumes:
+      - minio_data:/data
+    networks:
+      - cinema_network
+
+  minio_mc:
+    build:
+      context: .
+      dockerfile: docker/minio_mc/Dockerfile
+    container_name: minio_mc_cinema
+    command: ["/bin/sh", "-c", "/commands/setup_minio.sh"]
+    env_file:
+      - .env
+    healthcheck:
+      test: [ "CMD", "test", "-f", "/tmp/setup_done" ]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    networks:
+      - cinema_network
+
 
 
 volumes:
   postgres_data:
+  minio_data:
+
+networks:
+  cinema_network:
+    driver: bridge

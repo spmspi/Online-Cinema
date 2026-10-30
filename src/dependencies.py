@@ -11,6 +11,8 @@ from src.database.models.accounts import UserModel
 from src.security.interface_token import JWTAuthManagerInterface
 from src.security.token_manager import JWTAuthManager
 from src.settings import Settings, get_settings
+from src.storage.interfaces import S3StorageInterface
+from src.storage.s3 import S3StorageClient
 
 
 def get_jwt_auth_manager(settings: Settings = Depends(get_settings)) -> JWTAuthManagerInterface:
@@ -24,6 +26,32 @@ def get_jwt_auth_manager(settings: Settings = Depends(get_settings)) -> JWTAuthM
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=settings.ACCESS_TOKEN_URL,
 )
+
+
+def get_s3_storage_client(
+    settings: Settings = Depends(get_settings)
+) -> S3StorageInterface:
+    """
+    Retrieve an instance of the S3StorageInterface configured with the application settings.
+
+    This function instantiates an S3StorageClient using the provided settings, which include the S3 endpoint URL,
+    access credentials, and the bucket name. The returned client can be used to interact with an S3-compatible
+    storage service for file uploads and URL generation.
+
+    Args:
+        settings (BaseAppSettings, optional): The application settings,
+        provided via dependency injection from `get_settings`.
+
+    Returns:
+        S3StorageInterface: An instance of S3StorageClient configured with the appropriate S3 storage settings.
+    """
+    return S3StorageClient(
+        endpoint_url=settings.S3_STORAGE_ENDPOINT,
+        access_key=settings.S3_STORAGE_ACCESS_KEY,
+        secret_key=settings.S3_STORAGE_SECRET_KEY,
+        bucket_name=settings.S3_BUCKET_NAME
+    )
+
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)],
                            db: AsyncSession = Depends(get_db),
