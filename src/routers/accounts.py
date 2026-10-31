@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import EmailStr
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -13,7 +14,7 @@ from src.database.models.accounts import (
     RefreshTokenModel,
 )
 from src.database.engine import get_db
-from src.dependencies import get_jwt_auth_manager, get_current_user
+from src.dependencies import get_jwt_auth_manager, get_current_user, get_admin_user_group
 from src.schemas.accounts import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
@@ -26,6 +27,7 @@ from src.schemas.accounts import (
     GetAccessTokenResponseSchema,
     GetAccessTokenRequestSchema,
     PasswordResetRequestSchema,
+    ActivateAccountRequestSchema,
 )
 from src.database.models.accounts import ActivationTokenModel
 from src.security.interface_token import JWTAuthManagerInterface
@@ -344,4 +346,29 @@ async def logout_user(
     await db.commit()
     return MessageResponseSchema(message="Logout successfully.")
 
+@router.post(
+    "/activate_account_for_admin/",
+    response_model=MessageResponseSchema,
+)
+async def activate_account_for_admin(
+        email: ActivateAccountRequestSchema,
+        db: AsyncSession = Depends(get_db),
+        is_admin: UserModel = Depends(get_admin_user_group)
+):
+    stmt = select(UserModel).filter_by(email=email.email)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if user.is_active == True:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account is already activated.",
+        )
+    user.is_active = True
+    await db.commit()
+    return MessageResponseSchema(message="Activated successfully.")
 

@@ -75,3 +75,7 @@ class GetAccessTokenRequestSchema(BaseModel):
 
 class GetAccessTokenResponseSchema(BaseModel):
     access_token: str
+
+
+class ActivateAccountRequestSchema(BaseModel):
+    email: EmailStr
