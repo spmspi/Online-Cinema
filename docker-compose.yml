@@ -87,6 +87,57 @@ services:
     networks:
       - cinema_network
 
+  redis:
+    image: redis:alpine
+    container_name: cinema_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - cinema_network
+
+  celery_worker:
+    build: .
+    container_name: cinema_celery_worker
+    command: celery -A src.celery.celery_app:celery_app worker --loglevel=info
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    networks:
+      - cinema_network
+
+  celery_beat:
+    build: .
+    container_name: cinema_celery_beat
+    command: celery -A src.celery.celery_app:celery_app beat --loglevel=info
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    networks:
+      - cinema_network
+
+  flower:
+    build: .
+    container_name: cinema_flower
+    command: ["python", "-m", "celery", "-A", "src.celery.celery_app:celery_app", "flower", "--port=5555"]
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - celery_beat
+    networks:
+      - cinema_network
 
 volumes:
   postgres_data:

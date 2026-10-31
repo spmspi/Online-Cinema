@@ -5,14 +5,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import os
-from src import settings
+
+from src.settings import get_settings
 from dotenv import load_dotenv
-from alembic import context
+
 
 
 load_dotenv()
 
-config = context.config
+settings = get_settings()
+
 POSTGRESQL_DATABASE_URL = (f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@"
                            f"{settings.POSTGRES_HOST}:{settings.POSTGRES_DB_PORT}/{settings.POSTGRES_DB}")
 postgresql_engine = create_async_engine(POSTGRESQL_DATABASE_URL, echo=False)
@@ -26,7 +28,7 @@ AsyncPostgresqlSessionLocal = sessionmaker(  # type: ignore
 
 sync_database_url = POSTGRESQL_DATABASE_URL.replace("postgresql+asyncpg", "postgresql")
 sync_postgresql_engine = create_engine(sync_database_url, echo=False)
-config.set_main_option("sqlalchemy.url", sync_database_url)
+SyncSessionLocal = sessionmaker(bind=sync_postgresql_engine, expire_on_commit=False)
 
 
 async def get_postgresql_db() -> AsyncGenerator[AsyncSession, None]:
