@@ -124,3 +124,20 @@ def get_accounts_email_notificator(
         password_complete_email_template_name=settings.PASSWORD_RESET_COMPLETE_TEMPLATE_NAME
     )
 
+
+async def get_admin_user_group(current_user: User = Depends(get_current_user),
+                         db: AsyncSession = Depends(get_db)):
+    stmt = (
+        select(UserModel)
+        .where(UserModel.id == current_user.id)
+        .options(joinedload(UserModel.group))
+    )
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    if not user.group or user.group.name not in UserGroupEnum.ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="insufficient permissions for these actions",
+        )
+    return user
+
