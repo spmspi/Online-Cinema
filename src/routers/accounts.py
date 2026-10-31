@@ -29,6 +29,8 @@ from src.schemas.accounts import (
 )
 from src.database.models.accounts import ActivationTokenModel
 from src.security.interface_token import JWTAuthManagerInterface
+from src.dependencies import get_accounts_email_notificator
+from src.notifications.interfaces import EmailSenderInterface
 
 router = APIRouter()
 
@@ -37,6 +39,7 @@ router = APIRouter()
 async def register_user(
     user_data: UserRegistrationRequestSchema,
     db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
 ) -> UserRegistrationResponseSchema:
 
     stmt = select(UserModel).where(UserModel.email == user_data.email)
@@ -78,6 +81,13 @@ async def register_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during user creation.",
         ) from e
+    else:
+        activation_link = "http://127.0.0.1/accounts/activate/"
+
+        await email_sender.send_activation_email(
+            new_user.email,
+            activation_link
+        )
 
     return UserRegistrationResponseSchema.model_validate(new_user)
 
@@ -140,6 +150,7 @@ async def login_user(
 async def activate_account(
     activation_data: UserActivationRequestSchema,
     db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
 ) -> MessageResponseSchema:
 
     stmt = (
@@ -179,6 +190,13 @@ async def activate_account(
     await db.delete(token_record)
     await db.commit()
 
+    login_link = "http://127.0.0.1/accounts/login/"
+
+    await email_sender.send_activation_complete_email(
+        str(activation_data.email),
+        login_link
+    )
+
     return MessageResponseSchema(message="User account activated successfully.")
 
 
@@ -214,6 +232,7 @@ async def get_access_token(
 async def request_password_reset_token(
     data: PasswordResetRequestSchema,
     db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
 ) -> MessageResponseSchema:
 
     stmt = select(UserModel).filter_by(email=data.email)
@@ -235,6 +254,13 @@ async def request_password_reset_token(
     db.add(reset_token)
     await db.commit()
 
+    password_reset_complete_link = "http://127.0.0.1/accounts/password-reset-complete/"
+
+    await email_sender.send_password_reset_email(
+        str(data.email),
+        password_reset_complete_link
+    )
+
     return MessageResponseSchema(
         message="If you are registered, you will receive an email with instructions."
     )
@@ -247,6 +273,7 @@ async def request_password_reset_token(
 async def reset_password(
     data: PasswordResetCompleteRequestSchema,
     db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
 ) -> MessageResponseSchema:
     stmt = select(UserModel).filter_by(email=data.email)
     result = await db.execute(stmt)
@@ -286,6 +313,13 @@ async def reset_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while resetting the password.",
         )
+
+    login_link = "http://127.0.0.1/accounts/login/"
+
+    await email_sender.send_password_reset_complete_email(
+        str(data.email),
+        login_link
+    )
 
     return MessageResponseSchema(message="Password reset successfully.")
 

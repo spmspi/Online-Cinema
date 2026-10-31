@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+from pathlib import Path
 
 load_dotenv()
 
@@ -14,6 +15,9 @@ class BaseAppSettings(BaseSettings):
 LOGIN_TIME_DAYS: int = 7
 
 class Settings(BaseAppSettings):
+    BASE_DIR: Path = Path(__file__).parent.parent
+    PATH_TO_DB: str = str(BASE_DIR / "database" / "source" / "theater.db")
+
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "test_user")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "test_password")
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "test_host")
@@ -32,6 +36,19 @@ class Settings(BaseAppSettings):
     SECRET_KEY_REFRESH: str = os.getenv("SECRET_KEY_REFRESH", os.urandom(32))
     JWT_SIGNING_ALGORITHM: str = os.getenv("JWT_SIGNING_ALGORITHM", "HS256")
     ACCESS_TOKEN_URL: str = os.getenv("ACCESS_TOKEN_URL", "http://127.0.0.1:8000/login/")
+
+    PATH_TO_EMAIL_TEMPLATES_DIR: str = str(BASE_DIR / "src" / "notifications" / "templates")
+    ACTIVATION_EMAIL_TEMPLATE_NAME: str = "activation_request.html"
+    ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME: str = "activation_complete.html"
+    PASSWORD_RESET_TEMPLATE_NAME: str = "password_reset_request.html"
+    PASSWORD_RESET_COMPLETE_TEMPLATE_NAME: str = "password_reset_complete.html"
+
+    EMAIL_HOST: str = os.getenv("EMAIL_HOST", "host")
+    EMAIL_PORT: int = int(os.getenv("EMAIL_PORT", 25))
+    EMAIL_HOST_USER: str = os.getenv("EMAIL_HOST_USER", "testuser")
+    EMAIL_HOST_PASSWORD: str = os.getenv("EMAIL_HOST_PASSWORD", "test_password")
+    EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "False").lower() == "true"
+    MAILHOG_API_PORT: int = os.getenv("MAILHOG_API_PORT", 8025)
 
     @property
     def S3_STORAGE_ENDPOINT(self) -> str:
