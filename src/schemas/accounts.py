@@ -2,6 +2,12 @@ from pydantic import BaseModel, EmailStr, field_validator
 
 from src.validation import accounts as accounts_validators
 
+from enum import Enum
+
+class UserRoleEnum(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
+    MODERATOR = "moderator"
 
 class BaseEmailPasswordSchema(BaseModel):
     email: EmailStr
@@ -88,3 +94,8 @@ class ResetOldPasswordRequestSchema(BaseModel):
     @classmethod
     def validate_password(cls, value):
         return accounts_validators.validate_password_strength(value)
+
+
+class ChangeGroupSchema(BaseModel):
+    email: str
+    role: UserRoleEnum
