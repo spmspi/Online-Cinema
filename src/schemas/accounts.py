@@ -79,3 +79,12 @@ class GetAccessTokenResponseSchema(BaseModel):
 
 class ActivateAccountRequestSchema(BaseModel):
     email: EmailStr
+
+class ResetOldPasswordRequestSchema(BaseModel):
+    old_password: str
+    new_password: str
+
+    @field_validator("old_password", "new_password")
+    @classmethod
+    def validate_password(cls, value):
+        return accounts_validators.validate_password_strength(value)

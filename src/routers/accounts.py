@@ -11,7 +11,7 @@ from src.database.models.accounts import (
     UserModel,
     UserGroupModel,
     UserGroupEnum,
-    RefreshTokenModel,
+    RefreshTokenModel, PasswordResetTokenModel,
 )
 from src.database.engine import get_db
 from src.dependencies import get_jwt_auth_manager, get_current_user, get_admin_user_group
@@ -28,6 +28,7 @@ from src.schemas.accounts import (
     GetAccessTokenRequestSchema,
     PasswordResetRequestSchema,
     ActivateAccountRequestSchema,
+    ResetOldPasswordRequestSchema,
 )
 from src.database.models.accounts import ActivationTokenModel
 from src.security.interface_token import JWTAuthManagerInterface
@@ -371,4 +372,35 @@ async def activate_account_for_admin(
     user.is_active = True
     await db.commit()
     return MessageResponseSchema(message="Activated successfully.")
+
+
+@router.post(
+    "/reset_old_password/",
+    response_model=MessageResponseSchema,
+)
+async def reset_old_password(
+        data: ResetOldPasswordRequestSchema,
+        db: AsyncSession = Depends(get_db),
+        user: UserModel = Depends(get_current_user),
+):
+    stmt = select(UserModel).filter(UserModel.id==user.id)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    if user.is_active == False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account is already activated.",
+        )
+    if user.verify_password(data.old_password):
+        user.password = data.new_password
+        await db.commit()
+        return MessageResponseSchema(message="Password reset successfully.")
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="something went wrong",
+        )
+
+
+
 
