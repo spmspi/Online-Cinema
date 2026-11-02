@@ -1,3 +1,4 @@
+from celery.worker.state import total_count
 from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy import select, func, or_
@@ -7,11 +8,11 @@ from sqlalchemy.exc import IntegrityError
 from typing import Optional
 
 from src.database.models.accounts import UserModel
-from src.dependencies import get_user_group
+from src.dependencies import get_user_group, get_current_user
 from src.database.engine import get_db
-from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel
+from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel, MovieRatingModel
 from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
-    MovieCreateRequestSchema, MovieUpdateSchema
+    MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema
 
 router = APIRouter()
 
@@ -226,3 +227,62 @@ async def update_movie(
         raise HTTPException(status_code=400, detail="Invalid input data.")
 
     return {"detail": "Movie updated successfully."}
+
+
+@router.post("/movies/{movie_id}/rating", response_model=MovieRatingResponseSchema)
+async def add_movie_rating(
+        movie_id: int,
+        data: MovieRatingRequestSchema,
+        db: AsyncSession = Depends(get_db),
+        curret_user: UserModel = Depends(get_current_user)
+):
+    movie_stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    movie_result = await db.execute(movie_stmt)
+    movie = movie_result.scalar_one_or_none()
+
+    if not movie:
+        raise HTTPException(
+            status_code=404,
+            detail="Movie not found."
+        )
+
+
+    stmt = select(MovieRatingModel).filter(MovieRatingModel.user_id == curret_user.id, MovieRatingModel.movie_id == movie_id)
+    result = await db.execute(stmt)
+    rating = result.scalar_one_or_none()
+    if rating:
+        raise HTTPException(status_code=400, detail="Rating already exists.")
+    else:
+        rating = MovieRatingModel(
+            movie_id=movie_id,
+            user_id=curret_user.id,
+            score=data.score,
+        )
+        db.add(rating)
+    await db.flush()
+
+    avg_score_stmt = select(func.avg(MovieRatingModel.score)).where(MovieRatingModel.movie_id == movie_id)
+    avg_score_result = await db.execute(avg_score_stmt)
+    avg_score = avg_score_result.scalar_one_or_none()
+    movie.meta_score = round(float(avg_score), 2)
+    await db.commit()
+    return MovieRatingResponseSchema(movie_id=movie.id, meta_score=movie.meta_score)
+    #
+    # avg_score_stmt = select(func.avg(MovieRatingModel.score)).where(MovieRatingModel.movie_id == movie_id)
+    # avg_score_result = await db.execute(avg_score_stmt)
+    # avg_score = avg_score_result.scalar_one_or_none()
+    # count_score_stmt = select(func.count()).where(MovieRatingModel.movie_id == movie_id)
+    # count_score_result = await db.execute(count_score_stmt)
+    # count_score = count_score_result.scalar_one_or_none()
+    # MovieRatingModel(
+    #     movie_id=movie_id,
+    #     user_id=curret_user.id,
+    #     score=data.score,
+    #     )
+    # await db.commit()
+    #
+    # movie.ratings_counts = count_score
+    # movie.average_rating = avg_score
+    # await db.commit()
+    # await db.refresh(movie)
+    # # return MovieRatingResponseSchema.model_validate(movie)

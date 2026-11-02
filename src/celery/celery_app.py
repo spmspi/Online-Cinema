@@ -11,7 +11,7 @@ celery_app = Celery(
 celery_app.conf.beat_schedule = {
     "send-daily-digest-every-morning": {
         "task": "src.celery.tasks.cleanup_tokens_task",
-        "schedule": 60.0
+        "schedule": 60000.0
     },
 }
 celery_app.conf.timezone = "UTC"

@@ -1,9 +1,11 @@
 import uuid
 from typing import List
 
-from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table, CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.dialects import postgresql as psql
+
+from .accounts import UserModel
 from .base import Base
 
 MovieGenresModel = Table(
@@ -107,7 +109,7 @@ class MovieModel(Base):
     time: Mapped[int] = mapped_column(Integer, nullable=False)
     imdb: Mapped[float] = mapped_column(Float, nullable=False)
     votes: Mapped[int] = mapped_column(Integer, nullable=False)
-    meta_score: Mapped[float] = mapped_column(Float)
+    meta_score: Mapped[float] = mapped_column(Float, default=0.0)
     gross: Mapped[float] = mapped_column(Float)
     description: Mapped[str] = mapped_column(String)
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
@@ -130,4 +132,22 @@ class MovieModel(Base):
     @classmethod
     def default_order_by(cls):
         return [cls.id.desc()]
+
+
+class MovieRatingModel(Base):
+    __tablename__ = "movie_ratings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    movie_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies.id", ondelete="CASCADE"))
+
+    movie: Mapped["MovieModel"] = relationship("MovieModel")
+
+    __table_args__ = (
+        CheckConstraint("score >= 0 AND score <= 10", name="meta_score"),
+        UniqueConstraint("user_id", "movie_id", name="user_movie_rating"),
+    )
+
+
 
