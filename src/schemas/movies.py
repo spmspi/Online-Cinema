@@ -124,6 +124,6 @@ class GetMovieCommentsResponseSchema(BaseModel):
 
 class ResponseSubCommentSchema(BaseModel):
     parent_comment: CommentRequestSchema
-    comments: List[CommentResponseSchema]
+    comments: str
 
     model_config = ConfigDict(from_attributes=True)

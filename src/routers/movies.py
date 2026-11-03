@@ -15,7 +15,7 @@ from src.database.engine import get_db
 from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel, \
     MovieRatingModel, MovieLikeModel, CommentModel, SubCommentModel
 from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
-    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema, MovieLikeResponseSchema, CommentRequestSchema, CommentResponseSchema, GetMovieCommentsResponseSchema
+    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema, MovieLikeResponseSchema, CommentRequestSchema, CommentResponseSchema, GetMovieCommentsResponseSchema, ResponseSubCommentSchema
 
 router = APIRouter()
 
@@ -347,12 +347,7 @@ async def add_movie_comment(
         text=new_comment.text,
         created_at=new_comment.created_at,
     )
-#
-# class CommentResponseSchema(CommentRequestSchema):
-#     id: int
-#     movie_id: int
-#     user_id: int
-#     created_at: datetime
+
 
 @router.get(
     "/movies/{movie_id}/comments/", response_model=GetMovieCommentsResponseSchema
@@ -378,4 +373,31 @@ async def get_movie_comments(
     )
 
 
-@router.post("/movies/{movie_id}/{comments_id}/", response_model=)
+@router.post("/movies/{movie_id}/{comment_id}/", response_model=ResponseSubCommentSchema)
+async def add_sub_comment(
+        comment: CommentRequestSchema,
+        comment_id: int,
+        movie: MovieModel = Depends(get_movie_or_404),
+        db: AsyncSession = Depends(get_db),
+        current_user: UserModel = Depends(get_current_user),
+):
+    stmt = select(CommentModel).filter(CommentModel.id == comment_id)
+    result = await db.execute(stmt)
+    parent_comment = result.scalar_one_or_none()
+    if not parent_comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    new_sub_comment = SubCommentModel(
+        user_id=current_user.id,
+        text=comment.text,
+        comment_id=comment_id,
+    )
+
+    db.add(new_sub_comment)
+    await db.commit()
+    await db.refresh(new_sub_comment)
+    return ResponseSubCommentSchema(
+        parent_comment=parent_comment,
+        comments=new_sub_comment.text
+    )
+
