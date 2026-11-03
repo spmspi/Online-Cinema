@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Text
 
 from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table, CheckConstraint, UniqueConstraint, Boolean
 from sqlalchemy.orm import mapped_column, Mapped, relationship
@@ -115,6 +115,9 @@ class MovieModel(Base):
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
     likes_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     dislikes_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    comments_id: Mapped[List["CommentModel"]] = relationship(
+        "CommentModel", back_populates="movies"
+    )
     certification_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("certifications.id"), nullable=False
     )
@@ -168,6 +171,33 @@ class MovieLikeModel(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "movie_id", name="user_movie_like_unique"),
     )
+
+
+class CommentModel(Base):
+    __tablename__ = "movies_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    movie_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies.id", ondelete="CASCADE"), nullable=False)
+
+    sub_comments: Mapped[list["SubCommentModel"]] = relationship(
+        "SubCommentModel", back_populates="comments", cascade="all, delete-orphan"
+    )
+    user = relationship("UserModel")
+
+class SubCommentModel(Base):
+    __tablename__ = "movies_sub_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    comment_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies_comments.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    comment: Mapped["Comment"] = relationship("Comment", back_populates="sub_comments")
+    user = relationship("UserModel")
 
 
 
