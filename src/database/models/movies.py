@@ -1,7 +1,7 @@
 import uuid
 from typing import List
 
-from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table, CheckConstraint, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table, CheckConstraint, UniqueConstraint, Boolean
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.dialects import postgresql as psql
 
@@ -113,6 +113,8 @@ class MovieModel(Base):
     gross: Mapped[float] = mapped_column(Float)
     description: Mapped[str] = mapped_column(String)
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
+    likes_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    dislikes_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     certification_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("certifications.id"), nullable=False
     )
@@ -128,6 +130,8 @@ class MovieModel(Base):
     directors: Mapped[list["DirectorModel"]] = relationship(
         "DirectorModel", secondary=MovieDirectorModel, back_populates="movies"
     )
+    likes: Mapped[list["MovieLikeModel"]] = relationship("MovieLikeModel", back_populates="movie",
+                                                         cascade="all, delete-orphan")
 
     @classmethod
     def default_order_by(cls):
@@ -147,6 +151,22 @@ class MovieRatingModel(Base):
     __table_args__ = (
         CheckConstraint("score >= 0 AND score <= 10", name="meta_score"),
         UniqueConstraint("user_id", "movie_id", name="user_movie_rating"),
+    )
+
+
+class MovieLikeModel(Base):
+    __tablename__ = "movie_likes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    is_like: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    movie_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies.id", ondelete="CASCADE"), nullable=False)
+
+    movie: Mapped["MovieModel"] = relationship("MovieModel", back_populates="likes")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "movie_id", name="user_movie_like_unique"),
     )
 
 

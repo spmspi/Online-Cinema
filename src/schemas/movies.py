@@ -88,3 +88,11 @@ class MovieRatingResponseSchema(BaseModel):
 class MovieRatingRequestSchema(BaseModel):
     score: float
 
+
+class MovieLikeRequestSchema(BaseModel):
+    is_like: bool
+
+class MovieLikeResponseSchema(BaseModel):
+    movie_id: int
+    like: int
+    dislike: int

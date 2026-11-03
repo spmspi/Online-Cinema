@@ -8,11 +8,12 @@ from sqlalchemy.exc import IntegrityError
 from typing import Optional
 
 from src.database.models.accounts import UserModel
-from src.dependencies import get_user_group, get_current_user
+from src.dependencies import get_user_group, get_current_user, get_movie_or_404
 from src.database.engine import get_db
-from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel, MovieRatingModel
+from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel, \
+    MovieRatingModel, MovieLikeModel
 from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
-    MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema
+    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema, MovieLikeResponseSchema
 
 router = APIRouter()
 
@@ -267,22 +268,56 @@ async def add_movie_rating(
     movie.meta_score = round(float(avg_score), 2)
     await db.commit()
     return MovieRatingResponseSchema(movie_id=movie.id, meta_score=movie.meta_score)
-    #
-    # avg_score_stmt = select(func.avg(MovieRatingModel.score)).where(MovieRatingModel.movie_id == movie_id)
-    # avg_score_result = await db.execute(avg_score_stmt)
-    # avg_score = avg_score_result.scalar_one_or_none()
-    # count_score_stmt = select(func.count()).where(MovieRatingModel.movie_id == movie_id)
-    # count_score_result = await db.execute(count_score_stmt)
-    # count_score = count_score_result.scalar_one_or_none()
-    # MovieRatingModel(
-    #     movie_id=movie_id,
-    #     user_id=curret_user.id,
-    #     score=data.score,
-    #     )
-    # await db.commit()
-    #
-    # movie.ratings_counts = count_score
-    # movie.average_rating = avg_score
-    # await db.commit()
-    # await db.refresh(movie)
-    # # return MovieRatingResponseSchema.model_validate(movie)
+
+
+@router.post("/movies/{movie_id}/like", response_model=MovieLikeResponseSchema)
+async def add_movie_like(
+        reqoest_like: MovieLikeRequestSchema,
+        movie: MovieModel = Depends(get_movie_or_404),
+        db: AsyncSession = Depends(get_db),
+        curret_user: UserModel = Depends(get_current_user),
+):
+    stmt = select(MovieLikeModel).filter(
+        MovieLikeModel.user_id == curret_user.id,
+        MovieLikeModel.movie_id == movie.id
+    )
+    result = await db.execute(stmt)
+    like = result.scalar_one_or_none()
+    if like:
+        if like.is_like == reqoest_like.is_like:
+            if like.is_like:
+                movie.likes_count = movie.likes_count - 1
+            else:
+                movie.dislikes_count = movie.dislikes_count - 1
+            await db.delete(like)
+            await db.commit()
+        else:
+            like.is_like = reqoest_like.is_like
+            if reqoest_like.is_like:
+                movie.likes_count += 1
+                movie.dislikes_count -= 1
+            else:
+                movie.dislikes_count += 1
+                movie.likes_count -= 1
+            await db.commit()
+    else:
+        new_like = MovieLikeModel(
+            movie_id=movie.id,
+            user_id=curret_user.id,
+            is_like=reqoest_like.is_like,
+        )
+        db.add(new_like)
+        if reqoest_like.is_like:
+            movie.likes_count += 1
+        else:
+            movie.dislikes_count += 1
+    await db.commit()
+
+    return MovieLikeResponseSchema(
+        movie_id=movie.id,
+        like=movie.likes_count,
+        dislike=movie.dislikes_count,
+    )
+
+
+

@@ -7,6 +7,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.testing.pickleable import User
 from fastapi.security import OAuth2PasswordBearer
 
+from src.database.models.movies import MovieModel
 from src.notifications.emails import EmailSender
 from src.notifications.interfaces import EmailSenderInterface
 from src.database.models.accounts import UserGroupModel, UserGroupEnum
@@ -17,6 +18,7 @@ from src.security.token_manager import JWTAuthManager
 from src.settings import Settings, get_settings
 from src.storage.interfaces import S3StorageInterface
 from src.storage.s3 import S3StorageClient
+from src.exceptions.security import BaseSecurityError
 
 
 def get_jwt_auth_manager(settings: Settings = Depends(get_settings)) -> JWTAuthManagerInterface:
@@ -60,21 +62,27 @@ def get_s3_storage_client(
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)],
                            db: AsyncSession = Depends(get_db),
                            jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager)):
-    payload = jwt_manager.decode_access_token(token)
-    if not payload:
+    try:
+        payload = jwt_manager.decode_access_token(token)
+        if not payload:
+            raise HTTPException(
+                status_code=401,
+            )
+        user_id = payload.get("user_id")
+        stmt = select(UserModel).where(UserModel.id == user_id)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="User not found",
+            )
+        return user
+    except BaseSecurityError:
         raise HTTPException(
-            status_code=401,
+            status_code=403,
+            detail="Insufficient permissions",
         )
-    user_id = payload.get("user_id")
-    stmt = select(UserModel).where(UserModel.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="User not found",
-        )
-    return user
 
 
 async def get_user_group(current_user: User = Depends(get_current_user),
@@ -141,3 +149,16 @@ async def get_admin_user_group(current_user: User = Depends(get_current_user),
         )
     return user
 
+async def get_movie_or_404(
+        movie_id: int,
+        db: AsyncSession = Depends(get_db),
+                           ):
+    stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    result = await db.execute(stmt)
+    movie = result.scalar_one_or_none()
+    if not movie:
+        raise HTTPException(
+            status_code=404,
+            detail="Movie not found."
+        )
+    return movie
