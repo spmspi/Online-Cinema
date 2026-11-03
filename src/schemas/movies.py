@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+
 
 
 class MovieListItemSchema(BaseModel):
@@ -96,3 +97,33 @@ class MovieLikeResponseSchema(BaseModel):
     movie_id: int
     like: int
     dislike: int
+
+
+
+class CommentRequestSchema(BaseModel):
+    text: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CommentResponseSchema(CommentRequestSchema):
+    id: int
+    movie_id: int
+    user_id: int
+    created_at: datetime
+
+    @field_validator("created_at")
+    def read_created_at(cls, value: datetime) -> str:
+        return value.strftime("%d.%m.%Y %H:%M")
+
+
+class GetMovieCommentsResponseSchema(BaseModel):
+    comments: List[CommentResponseSchema]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ResponseSubCommentSchema(BaseModel):
+    parent_comment: CommentRequestSchema
+    comments: List[CommentResponseSchema]
+
+    model_config = ConfigDict(from_attributes=True)

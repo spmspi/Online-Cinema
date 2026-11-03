@@ -3,17 +3,19 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
+
+from sqlalchemy.sql.functions import current_user
 
 from src.database.models.accounts import UserModel
 from src.dependencies import get_user_group, get_current_user, get_movie_or_404
 from src.database.engine import get_db
 from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel, \
-    MovieRatingModel, MovieLikeModel
+    MovieRatingModel, MovieLikeModel, CommentModel, SubCommentModel
 from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
-    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema, MovieLikeResponseSchema
+    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema, MovieLikeResponseSchema, CommentRequestSchema, CommentResponseSchema, GetMovieCommentsResponseSchema
 
 router = APIRouter()
 
@@ -320,4 +322,60 @@ async def add_movie_like(
     )
 
 
+@router.post(
+    "/movies/{movie_id}/comment/", response_model=CommentResponseSchema
+)
+async def add_movie_comment(
+        comment: CommentRequestSchema,
+        movie: MovieModel = Depends(get_movie_or_404),
+        db: AsyncSession = Depends(get_db),
+        current_user: UserModel = Depends(get_current_user),
+):
+    new_comment = CommentModel(
+        text=comment.text,
+        user_id=current_user.id,
+        movie_id=movie.id
+    )
+    db.add(new_comment)
+    await db.commit()
+    await db.refresh(new_comment)
 
+    return CommentResponseSchema(
+        id=new_comment.id,
+        movie_id=movie.id,
+        user_id=current_user.id,
+        text=new_comment.text,
+        created_at=new_comment.created_at,
+    )
+#
+# class CommentResponseSchema(CommentRequestSchema):
+#     id: int
+#     movie_id: int
+#     user_id: int
+#     created_at: datetime
+
+@router.get(
+    "/movies/{movie_id}/comments/", response_model=GetMovieCommentsResponseSchema
+)
+async def get_movie_comments(
+        movie: MovieModel = Depends(get_movie_or_404),
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(CommentModel)
+        .filter(CommentModel.movie_id == movie.id)
+        .options(
+            selectinload(CommentModel.user),
+            selectinload(CommentModel.sub_comments)
+            .selectinload(SubCommentModel.user)
+        )
+    )
+    result = await db.execute(stmt)
+    comments = result.scalars().all()
+    comments_list = [CommentResponseSchema.model_validate(com) for com in comments]
+    return GetMovieCommentsResponseSchema(
+        comments=comments_list,
+    )
+
+
+@router.post("/movies/{movie_id}/{comments_id}/", response_model=)

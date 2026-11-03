@@ -1,7 +1,8 @@
 import uuid
-from typing import List, Text
+from typing import List
+from datetime import datetime, date, timedelta, timezone
 
-from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table, CheckConstraint, UniqueConstraint, Boolean
+from sqlalchemy import Column, Integer, String, Float, DECIMAL, ForeignKey, Table, CheckConstraint, UniqueConstraint, Boolean, Text, DateTime, func
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.dialects import postgresql as psql
 
@@ -115,8 +116,8 @@ class MovieModel(Base):
     price: Mapped[float] = mapped_column(DECIMAL(10, 2))
     likes_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     dislikes_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    comments_id: Mapped[List["CommentModel"]] = relationship(
-        "CommentModel", back_populates="movies"
+    comments: Mapped[List["CommentModel"]] = relationship(
+        "CommentModel", back_populates="movie"
     )
     certification_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("certifications.id"), nullable=False
@@ -178,26 +179,40 @@ class CommentModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     movie_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies.id", ondelete="CASCADE"), nullable=False)
 
     sub_comments: Mapped[list["SubCommentModel"]] = relationship(
-        "SubCommentModel", back_populates="comments", cascade="all, delete-orphan"
+        "SubCommentModel", back_populates="comment", cascade="all, delete-orphan"
     )
     user = relationship("UserModel")
+    movie: Mapped["MovieModel"] = relationship("MovieModel", back_populates="comments")
+
+    @classmethod
+    def default_order_by(cls):
+        return [cls.created_at.desc()]
 
 class SubCommentModel(Base):
     __tablename__ = "movies_sub_comments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     comment_id: Mapped[int] = mapped_column(Integer, ForeignKey("movies_comments.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
-    comment: Mapped["Comment"] = relationship("Comment", back_populates="sub_comments")
+    comment: Mapped["CommentModel"] = relationship("CommentModel", back_populates="sub_comments")
     user = relationship("UserModel")
 
+    @classmethod
+    def default_order_by(cls):
+        return [cls.created_at.desc()]
 
 

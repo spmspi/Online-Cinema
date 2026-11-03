@@ -1,3 +1,5 @@
+from typing import Text
+
 from pydantic import BaseModel, EmailStr, field_validator
 
 from src.validation import accounts as accounts_validators
