@@ -14,7 +14,8 @@ from src.database.models.accounts import (
     RefreshTokenModel, PasswordResetTokenModel,
 )
 from src.database.engine import get_db
-from src.dependencies import get_jwt_auth_manager, get_current_user, get_admin_user_group
+from src.dependencies.service import get_jwt_auth_manager
+from src.dependencies.user import get_current_user, get_admin_user_group
 from src.schemas.accounts import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
@@ -33,7 +34,7 @@ from src.schemas.accounts import (
 )
 from src.database.models.accounts import ActivationTokenModel
 from src.security.interface_token import JWTAuthManagerInterface
-from src.dependencies import get_accounts_email_notificator
+from src.dependencies.service import get_accounts_email_notificator
 from src.notifications.interfaces import EmailSenderInterface
 
 router = APIRouter()

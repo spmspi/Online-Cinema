@@ -4,7 +4,6 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
-
 class MovieListItemSchema(BaseModel):
     id: int
     name: str
@@ -24,25 +23,30 @@ class MovieListResponseSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class CertificationSchema(BaseModel):
     name: str
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class GenresSchema(BaseModel):
     name: str
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class StarsSchema(BaseModel):
     name: str
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class DirectorsSchema(BaseModel):
     name: str
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class MovieCreateRequestSchema(BaseModel):
     name: str
@@ -59,6 +63,7 @@ class MovieCreateRequestSchema(BaseModel):
     stars: List[str]
     directors: List[str]
     model_config = ConfigDict(from_attributes=True)
+
 
 class MovieDetailResponseSchema(MovieCreateRequestSchema):
     id: int
@@ -80,7 +85,6 @@ class MovieUpdateSchema(BaseModel):
     price: Optional[float] = None
 
 
-
 class MovieRatingResponseSchema(BaseModel):
     movie_id: int
     meta_score: float
@@ -93,58 +97,11 @@ class MovieRatingRequestSchema(BaseModel):
 class MovieLikeRequestSchema(BaseModel):
     is_like: bool
 
+
 class MovieLikeResponseSchema(BaseModel):
     movie_id: int
     like: int
     dislike: int
-
-
-
-class CommentRequestSchema(BaseModel):
-    text: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-class CommentResponseSchema(CommentRequestSchema):
-    id: int
-    movie_id: int
-    user_id: int
-    created_at: datetime
-
-    @field_validator("created_at")
-    def read_created_at(cls, value: datetime) -> str:
-        return value.strftime("%d.%m.%Y %H:%M")
-
-
-class GetMovieCommentsResponseSchema(BaseModel):
-    comments: List[CommentResponseSchema]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ResponseSubCommentSchema(BaseModel):
-    parent_comment: CommentRequestSchema
-    comments: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class SubCommetBaseScgema(BaseModel):
-    id: int
-    user_id: int
-    created_at: datetime
-    text: str
-    model_config = ConfigDict(from_attributes=True)
-
-    @field_validator("created_at")
-    def read_created_at(cls, value: datetime) -> str:
-        return value.strftime("%d.%m.%Y %H:%M")
-
-
-class GetSubCommentsResponseSchema(BaseModel):
-    parent_comment: CommentRequestSchema
-    comments: List[SubCommetBaseScgema]
-
 
 
 class GetFavoriteMoviesSchema(BaseModel):

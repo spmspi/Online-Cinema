@@ -12,24 +12,43 @@ from starlette import status
 
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
-from src.dependencies import get_user_group, get_current_user, get_movie_or_404
+from src.dependencies.user import get_user_group, get_current_user
+from src.dependencies.movies import get_movie_or_404
 from src.database.engine import get_db
-from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel, \
-    MovieRatingModel, MovieLikeModel, CommentModel, SubCommentModel
-from src.schemas.movies import (MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
-    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema,
-                                MovieRatingRequestSchema, MovieLikeResponseSchema, CommentRequestSchema, CommentResponseSchema,
-                                GetMovieCommentsResponseSchema, ResponseSubCommentSchema, GetSubCommentsResponseSchema, SubCommetBaseScgema, GetFavoriteMoviesSchema)
+from src.database.models.movies import (
+    MovieModel,
+    CertificationModel,
+    GenreModel,
+    StarModel,
+    DirectorModel,
+    MovieRatingModel,
+    MovieLikeModel)
+
+from src.schemas.movies import (
+    MovieListResponseSchema,
+    MovieListItemSchema,
+    MovieDetailResponseSchema,
+    MovieLikeRequestSchema,
+    MovieLikeResponseSchema,
+    MovieCreateRequestSchema,
+    MovieUpdateSchema,
+    MovieRatingResponseSchema,
+    MovieRatingRequestSchema,
+    MovieLikeResponseSchema,
+    GetFavoriteMoviesSchema,
+)
 
 router = APIRouter()
 
 
 @router.get("/movies/", response_model=MovieListResponseSchema)
 async def get_movies_list(
-        page: int = Query(1, ge=1),
-        limit: int = Query(10, ge=1, le=20),
-        search: Optional[str] = Query(None, description="Search by title, description, actor, or director"),
-        db: AsyncSession = Depends(get_db)
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=20),
+    search: Optional[str] = Query(
+        None, description="Search by title, description, actor, or director"
+    ),
+    db: AsyncSession = Depends(get_db),
 ):
     offset = (page - 1) * limit
 
@@ -41,7 +60,7 @@ async def get_movies_list(
             MovieModel.name.ilike(search_query),
             MovieModel.description.ilike(search_query),
             MovieModel.stars.any(StarModel.name.ilike(search_query)),
-            MovieModel.directors.any(DirectorModel.name.ilike(search_query))
+            MovieModel.directors.any(DirectorModel.name.ilike(search_query)),
         )
         base_query = base_query.where(search_filter)
 
@@ -86,9 +105,9 @@ async def get_movies_list(
 
 @router.post("/movies/", response_model=MovieDetailResponseSchema)
 async def create_movie(
-        movie_data: MovieCreateRequestSchema,
-        db: AsyncSession = Depends(get_db),
-        curret_user: UserModel = Depends(get_user_group)
+    movie_data: MovieCreateRequestSchema,
+    db: AsyncSession = Depends(get_db),
+    curret_user: UserModel = Depends(get_user_group),
 ):
     movie_stmt = select(MovieModel).where(
         (MovieModel.name == movie_data.name),
@@ -99,15 +118,17 @@ async def create_movie(
     dublicate = result.scalar()
     if dublicate:
         raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        f"A movie with the name '{movie_data.name}', release date "
-                        f"'{movie_data.year}', and {movie_data.time} minute already exists."
-                    )
-                )
+            status_code=409,
+            detail=(
+                f"A movie with the name '{movie_data.name}', release date "
+                f"'{movie_data.year}', and {movie_data.time} minute already exists."
+            ),
+        )
 
     try:
-        certification_stmt = select(CertificationModel).where(CertificationModel.name == movie_data.certification)
+        certification_stmt = select(CertificationModel).where(
+            CertificationModel.name == movie_data.certification
+        )
         certification_res = await db.execute(certification_stmt)
         certification = certification_res.scalars().first()
         if not certification:
@@ -139,7 +160,9 @@ async def create_movie(
 
         directors = []
         for director_name in movie_data.directors:
-            director_stmt = select(DirectorModel).where(DirectorModel.name == director_name)
+            director_stmt = select(DirectorModel).where(
+                DirectorModel.name == director_name
+            )
             director_res = await db.execute(director_stmt)
             director = director_res.scalars().first()
             if not director:
@@ -172,32 +195,42 @@ async def create_movie(
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"{e}")
 
+
 @router.get("/movies/{movie_id}", response_model=MovieDetailResponseSchema)
 async def get_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
-    stmt = select(MovieModel).where(MovieModel.id == movie_id).options(
-        joinedload(MovieModel.certification),
-        joinedload(MovieModel.genres),
-        joinedload(MovieModel.stars),
-        joinedload(MovieModel.directors)
+    stmt = (
+        select(MovieModel)
+        .where(MovieModel.id == movie_id)
+        .options(
+            joinedload(MovieModel.certification),
+            joinedload(MovieModel.genres),
+            joinedload(MovieModel.stars),
+            joinedload(MovieModel.directors),
+        )
     )
 
     result = await db.execute(stmt)
     movie = result.scalars().first()
     if not movie:
-        raise HTTPException(status_code=404, detail="Movie with the given ID was not found.")
+        raise HTTPException(
+            status_code=404, detail="Movie with the given ID was not found."
+        )
 
     return MovieDetailResponseSchema.model_validate(movie)
 
+
 @router.delete("/movies/{movie_id}")
-async def delete_movie(movie_id: int, db: AsyncSession = Depends(get_db),
-                       curret_user: UserModel = Depends(get_user_group)):
+async def delete_movie(
+    movie_id: int,
+    db: AsyncSession = Depends(get_db),
+    curret_user: UserModel = Depends(get_user_group),
+):
     stmt = select(MovieModel).where(MovieModel.id == movie_id)
     result = await db.execute(stmt)
     movie = result.scalars().first()
     if not movie:
         raise HTTPException(
-            status_code=404,
-            detail="Movie with the given ID was not found."
+            status_code=404, detail="Movie with the given ID was not found."
         )
 
     await db.delete(movie)
@@ -208,10 +241,10 @@ async def delete_movie(movie_id: int, db: AsyncSession = Depends(get_db),
 
 @router.patch("/movies/{movie_id}")
 async def update_movie(
-        movie_id: int,
-        movie_data: MovieUpdateSchema,
-        db: AsyncSession = Depends(get_db),
-        curret_user: UserModel = Depends(get_user_group)
+    movie_id: int,
+    movie_data: MovieUpdateSchema,
+    db: AsyncSession = Depends(get_db),
+    curret_user: UserModel = Depends(get_user_group),
 ):
     stmt = select(MovieModel).where(MovieModel.id == movie_id)
     result = await db.execute(stmt)
@@ -219,8 +252,7 @@ async def update_movie(
 
     if not movie:
         raise HTTPException(
-            status_code=404,
-            detail="Movie with the given ID was not found."
+            status_code=404, detail="Movie with the given ID was not found."
         )
 
     for field, value in movie_data.model_dump(exclude_unset=True).items():
@@ -238,23 +270,22 @@ async def update_movie(
 
 @router.post("/movies/{movie_id}/rating", response_model=MovieRatingResponseSchema)
 async def add_movie_rating(
-        movie_id: int,
-        data: MovieRatingRequestSchema,
-        db: AsyncSession = Depends(get_db),
-        curret_user: UserModel = Depends(get_current_user)
+    movie_id: int,
+    data: MovieRatingRequestSchema,
+    db: AsyncSession = Depends(get_db),
+    curret_user: UserModel = Depends(get_current_user),
 ):
     movie_stmt = select(MovieModel).where(MovieModel.id == movie_id)
     movie_result = await db.execute(movie_stmt)
     movie = movie_result.scalar_one_or_none()
 
     if not movie:
-        raise HTTPException(
-            status_code=404,
-            detail="Movie not found."
-        )
+        raise HTTPException(status_code=404, detail="Movie not found.")
 
-
-    stmt = select(MovieRatingModel).filter(MovieRatingModel.user_id == curret_user.id, MovieRatingModel.movie_id == movie_id)
+    stmt = select(MovieRatingModel).filter(
+        MovieRatingModel.user_id == curret_user.id,
+        MovieRatingModel.movie_id == movie_id,
+    )
     result = await db.execute(stmt)
     rating = result.scalar_one_or_none()
     if rating:
@@ -268,7 +299,9 @@ async def add_movie_rating(
         db.add(rating)
     await db.flush()
 
-    avg_score_stmt = select(func.avg(MovieRatingModel.score)).where(MovieRatingModel.movie_id == movie_id)
+    avg_score_stmt = select(func.avg(MovieRatingModel.score)).where(
+        MovieRatingModel.movie_id == movie_id
+    )
     avg_score_result = await db.execute(avg_score_stmt)
     avg_score = avg_score_result.scalar_one_or_none()
     movie.meta_score = round(float(avg_score), 2)
@@ -276,14 +309,17 @@ async def add_movie_rating(
     return MovieRatingResponseSchema(movie_id=movie.id, meta_score=movie.meta_score)
 
 
-@router.post(
-    "/movies/{movie_id}/favorite/", response_model=MessageResponseSchema)
+@router.post("/movies/{movie_id}/favorite/", response_model=MessageResponseSchema)
 async def add_in_favorite_movie(
-        movie: MovieModel = Depends(get_movie_or_404),
-        db: AsyncSession = Depends(get_db),
-        current_user: UserModel = Depends(get_current_user),
+    movie: MovieModel = Depends(get_movie_or_404),
+    db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
 ):
-    stmt = (select(UserModel).options(selectinload(UserModel.favorites)).where(UserModel.id == current_user.id))
+    stmt = (
+        select(UserModel)
+        .options(selectinload(UserModel.favorites))
+        .where(UserModel.id == current_user.id)
+    )
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     if movie in current_user.favorites:
@@ -295,27 +331,35 @@ async def add_in_favorite_movie(
 
 
 @router.get(
-    "/movies/favorites/", )
+    "/movies/favorites/",
+)
 async def get_favorite_movies(
-        current_user: UserModel = Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    stmt = (select(UserModel).options(selectinload(UserModel.favorites)).where(UserModel.id == current_user.id))
+    stmt = (
+        select(UserModel)
+        .options(selectinload(UserModel.favorites))
+        .where(UserModel.id == current_user.id)
+    )
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     movie_list = [MovieListItemSchema.model_validate(movie) for movie in user.favorites]
 
     return GetFavoriteMoviesSchema(movies=movie_list)
 
-@router.delete(
-    "/movies/{movie_id}/favorites/", response_model=MessageResponseSchema
-)
+
+@router.delete("/movies/{movie_id}/favorites/", response_model=MessageResponseSchema)
 async def remove_favorite_movie(
-        movie: MovieModel = Depends(get_movie_or_404),
-        current_user: UserModel = Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
+    movie: MovieModel = Depends(get_movie_or_404),
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    stmt = (select(UserModel).options(selectinload(UserModel.favorites)).where(UserModel.id == current_user.id))
+    stmt = (
+        select(UserModel)
+        .options(selectinload(UserModel.favorites))
+        .where(UserModel.id == current_user.id)
+    )
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     if movie not in user.favorites:
@@ -325,17 +369,15 @@ async def remove_favorite_movie(
     return {"message": "Movie removed from favorites"}
 
 
-
 @router.post("/movies/{movie_id}/like", response_model=MovieLikeResponseSchema)
 async def add_movie_like(
-        reqoest_like: MovieLikeRequestSchema,
-        movie: MovieModel = Depends(get_movie_or_404),
-        db: AsyncSession = Depends(get_db),
-        curret_user: UserModel = Depends(get_current_user),
+    reqoest_like: MovieLikeRequestSchema,
+    movie: MovieModel = Depends(get_movie_or_404),
+    db: AsyncSession = Depends(get_db),
+    curret_user: UserModel = Depends(get_current_user),
 ):
     stmt = select(MovieLikeModel).filter(
-        MovieLikeModel.user_id == curret_user.id,
-        MovieLikeModel.movie_id == movie.id
+        MovieLikeModel.user_id == curret_user.id, MovieLikeModel.movie_id == movie.id
     )
     result = await db.execute(stmt)
     like = result.scalar_one_or_none()
@@ -374,126 +416,3 @@ async def add_movie_like(
         like=movie.likes_count,
         dislike=movie.dislikes_count,
     )
-
-
-@router.post(
-    "/movies/{movie_id}/comment/", response_model=CommentResponseSchema
-)
-async def add_movie_comment(
-        comment: CommentRequestSchema,
-        movie: MovieModel = Depends(get_movie_or_404),
-        db: AsyncSession = Depends(get_db),
-        current_user: UserModel = Depends(get_current_user),
-):
-    new_comment = CommentModel(
-        text=comment.text,
-        user_id=current_user.id,
-        movie_id=movie.id
-    )
-    db.add(new_comment)
-    await db.commit()
-    await db.refresh(new_comment)
-
-    return CommentResponseSchema(
-        id=new_comment.id,
-        movie_id=movie.id,
-        user_id=current_user.id,
-        text=new_comment.text,
-        created_at=new_comment.created_at,
-    )
-
-
-@router.get(
-    "/movies/{movie_id}/comments/", response_model=GetMovieCommentsResponseSchema
-)
-async def get_movie_comments(
-        movie: MovieModel = Depends(get_movie_or_404),
-        db: AsyncSession = Depends(get_db),
-):
-    stmt = (
-        select(CommentModel)
-        .filter(CommentModel.movie_id == movie.id)
-        .options(
-            selectinload(CommentModel.user),
-            selectinload(CommentModel.sub_comments)
-            .selectinload(SubCommentModel.user)
-        )
-    )
-    result = await db.execute(stmt)
-    comments = result.scalars().all()
-    comments_list = [CommentResponseSchema.model_validate(com) for com in comments]
-    return GetMovieCommentsResponseSchema(
-        comments=comments_list,
-    )
-
-
-@router.post("/movies/{movie_id}/{comment_id}/", response_model=ResponseSubCommentSchema)
-async def add_sub_comment(
-        comment: CommentRequestSchema,
-        comment_id: int,
-        movie: MovieModel = Depends(get_movie_or_404),
-        db: AsyncSession = Depends(get_db),
-        current_user: UserModel = Depends(get_current_user),
-):
-    stmt = select(CommentModel).filter(CommentModel.id == comment_id)
-    result = await db.execute(stmt)
-    parent_comment = result.scalar_one_or_none()
-    if not parent_comment:
-        raise HTTPException(status_code=404, detail="Comment not found")
-
-    new_sub_comment = SubCommentModel(
-        user_id=current_user.id,
-        text=comment.text,
-        comment_id=comment_id,
-    )
-
-    db.add(new_sub_comment)
-    await db.commit()
-    await db.refresh(new_sub_comment)
-    return ResponseSubCommentSchema(
-        parent_comment=parent_comment,
-        comments=new_sub_comment.text
-    )
-
-
-@router.get("/movies/{comment_id}/", response_model=GetSubCommentsResponseSchema)
-async def get_sub_comment(
-        comment_id: int,
-        db: AsyncSession = Depends(get_db),
-):
-    stmt = select(CommentModel).filter(CommentModel.id == comment_id)
-    result = await db.execute(stmt)
-    comment = result.scalar_one_or_none()
-    if not comment:
-        raise HTTPException(status_code=404, detail="Comment not found")
-
-    stmt_sub = (
-        select(SubCommentModel)
-        .filter(SubCommentModel.comment_id == comment_id)
-        .options(
-            joinedload(SubCommentModel.user)
-        )
-    )
-
-    result = await db.execute(stmt_sub)
-    comments = result.scalars().all()
-    comments_list = [SubCommetBaseScgema.model_validate(com) for com in comments]
-
-
-    return GetSubCommentsResponseSchema(
-        parent_comment=comment,
-        comments=comments_list
-    )
-
-
-@router.get(
-    "/movies/favorites/", )
-async def get_favorite_movies(
-        current_user: UserModel = Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(current_user.favorites)
-    movies = result.scalars().all()
-    movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
-
-    return GetFavoriteMoviesSchema(movies=movie_list)

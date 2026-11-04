@@ -5,7 +5,7 @@ from pydantic import HttpUrl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.dependencies import get_s3_storage_client, get_jwt_auth_manager
+from src.dependencies.service import get_s3_storage_client, get_jwt_auth_manager
 from src.database.engine import get_db
 from src.database.models.accounts import UserModel, UserProfileModel, GenderEnum, UserGroupModel, UserGroupEnum
 from src.exceptions.security import BaseSecurityError
