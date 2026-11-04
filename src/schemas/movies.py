@@ -144,3 +144,8 @@ class SubCommetBaseScgema(BaseModel):
 class GetSubCommentsResponseSchema(BaseModel):
     parent_comment: CommentRequestSchema
     comments: List[SubCommetBaseScgema]
+
+
+
+class GetFavoriteMoviesSchema(BaseModel):
+    movies: List[MovieListItemSchema]

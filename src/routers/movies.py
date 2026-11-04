@@ -8,7 +8,9 @@ from sqlalchemy.exc import IntegrityError
 from typing import Optional
 
 from sqlalchemy.sql.functions import current_user
+from starlette import status
 
+from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
 from src.dependencies import get_user_group, get_current_user, get_movie_or_404
 from src.database.engine import get_db
@@ -17,7 +19,7 @@ from src.database.models.movies import MovieModel, CertificationModel, GenreMode
 from src.schemas.movies import (MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
     MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema,
                                 MovieRatingRequestSchema, MovieLikeResponseSchema, CommentRequestSchema, CommentResponseSchema,
-                                GetMovieCommentsResponseSchema, ResponseSubCommentSchema, GetSubCommentsResponseSchema, SubCommetBaseScgema)
+                                GetMovieCommentsResponseSchema, ResponseSubCommentSchema, GetSubCommentsResponseSchema, SubCommetBaseScgema, GetFavoriteMoviesSchema)
 
 router = APIRouter()
 
@@ -274,6 +276,56 @@ async def add_movie_rating(
     return MovieRatingResponseSchema(movie_id=movie.id, meta_score=movie.meta_score)
 
 
+@router.post(
+    "/movies/{movie_id}/favorite/", response_model=MessageResponseSchema)
+async def add_in_favorite_movie(
+        movie: MovieModel = Depends(get_movie_or_404),
+        db: AsyncSession = Depends(get_db),
+        current_user: UserModel = Depends(get_current_user),
+):
+    stmt = (select(UserModel).options(selectinload(UserModel.favorites)).where(UserModel.id == current_user.id))
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    if movie in current_user.favorites:
+        raise HTTPException(status_code=400, detail="Movie already favorited")
+
+    current_user.favorites.append(movie)
+    await db.commit()
+    return {"message": "Movie added to favorites"}
+
+
+@router.get(
+    "/movies/favorites/", )
+async def get_favorite_movies(
+        current_user: UserModel = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = (select(UserModel).options(selectinload(UserModel.favorites)).where(UserModel.id == current_user.id))
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    movie_list = [MovieListItemSchema.model_validate(movie) for movie in user.favorites]
+
+    return GetFavoriteMoviesSchema(movies=movie_list)
+
+@router.delete(
+    "/movies/{movie_id}/favorites/", response_model=MessageResponseSchema
+)
+async def remove_favorite_movie(
+        movie: MovieModel = Depends(get_movie_or_404),
+        current_user: UserModel = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = (select(UserModel).options(selectinload(UserModel.favorites)).where(UserModel.id == current_user.id))
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    if movie not in user.favorites:
+        raise HTTPException(status_code=400, detail="Movie not found.")
+    current_user.favorites.remove(movie)
+    await db.commit()
+    return {"message": "Movie removed from favorites"}
+
+
+
 @router.post("/movies/{movie_id}/like", response_model=MovieLikeResponseSchema)
 async def add_movie_like(
         reqoest_like: MovieLikeRequestSchema,
@@ -433,3 +485,15 @@ async def get_sub_comment(
         comments=comments_list
     )
 
+
+@router.get(
+    "/movies/favorites/", )
+async def get_favorite_movies(
+        current_user: UserModel = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(current_user.favorites)
+    movies = result.scalars().all()
+    movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
+
+    return GetFavoriteMoviesSchema(movies=movie_list)

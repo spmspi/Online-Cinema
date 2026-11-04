@@ -1,6 +1,6 @@
 from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import Column, Integer, String, Float, Enum, Boolean, DateTime, true, func, ForeignKey, Text, Date, \
-    UniqueConstraint
+    UniqueConstraint, Table
 import enum
 from typing import List, Optional
 from .base import Base
@@ -9,6 +9,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from src.validation import accounts as validators
 
 from ...security.passwords import hash_password, verify_password
+
+
+FavoriteMovie = Table(
+    "favorite_movie",
+    Base.metadata,
+Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True),
+Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),)
 
 
 class UserGroupEnum(str, enum.Enum):
@@ -41,6 +48,10 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     _hashed_password: Mapped[str] = mapped_column("hashed_password", String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    favorites: Mapped[List["MovieModel"]] = relationship(
+        "MovieModel",
+        secondary=FavoriteMovie,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
