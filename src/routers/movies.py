@@ -14,8 +14,10 @@ from src.dependencies import get_user_group, get_current_user, get_movie_or_404
 from src.database.engine import get_db
 from src.database.models.movies import MovieModel, CertificationModel, GenreModel, StarModel, DirectorModel, \
     MovieRatingModel, MovieLikeModel, CommentModel, SubCommentModel
-from src.schemas.movies import MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
-    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema, MovieRatingRequestSchema, MovieLikeResponseSchema, CommentRequestSchema, CommentResponseSchema, GetMovieCommentsResponseSchema, ResponseSubCommentSchema
+from src.schemas.movies import (MovieListResponseSchema, MovieListItemSchema, MovieDetailResponseSchema, \
+    MovieLikeRequestSchema, MovieLikeResponseSchema, MovieCreateRequestSchema, MovieUpdateSchema, MovieRatingResponseSchema,
+                                MovieRatingRequestSchema, MovieLikeResponseSchema, CommentRequestSchema, CommentResponseSchema,
+                                GetMovieCommentsResponseSchema, ResponseSubCommentSchema, GetSubCommentsResponseSchema, SubCommetBaseScgema)
 
 router = APIRouter()
 
@@ -399,5 +401,35 @@ async def add_sub_comment(
     return ResponseSubCommentSchema(
         parent_comment=parent_comment,
         comments=new_sub_comment.text
+    )
+
+
+@router.get("/movies/{comment_id}/", response_model=GetSubCommentsResponseSchema)
+async def get_sub_comment(
+        comment_id: int,
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(CommentModel).filter(CommentModel.id == comment_id)
+    result = await db.execute(stmt)
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    stmt_sub = (
+        select(SubCommentModel)
+        .filter(SubCommentModel.comment_id == comment_id)
+        .options(
+            joinedload(SubCommentModel.user)
+        )
+    )
+
+    result = await db.execute(stmt_sub)
+    comments = result.scalars().all()
+    comments_list = [SubCommetBaseScgema.model_validate(com) for com in comments]
+
+
+    return GetSubCommentsResponseSchema(
+        parent_comment=comment,
+        comments=comments_list
     )
 

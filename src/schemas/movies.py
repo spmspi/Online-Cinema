@@ -127,3 +127,20 @@ class ResponseSubCommentSchema(BaseModel):
     comments: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SubCommetBaseScgema(BaseModel):
+    id: int
+    user_id: int
+    created_at: datetime
+    text: str
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("created_at")
+    def read_created_at(cls, value: datetime) -> str:
+        return value.strftime("%d.%m.%Y %H:%M")
+
+
+class GetSubCommentsResponseSchema(BaseModel):
+    parent_comment: CommentRequestSchema
+    comments: List[SubCommetBaseScgema]

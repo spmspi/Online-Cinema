@@ -194,7 +194,7 @@ class CommentModel(Base):
 
     @classmethod
     def default_order_by(cls):
-        return [cls.created_at.desc()]
+        return [cls.created_at.asc()]
 
 class SubCommentModel(Base):
     __tablename__ = "movies_sub_comments"
@@ -213,6 +213,6 @@ class SubCommentModel(Base):
 
     @classmethod
     def default_order_by(cls):
-        return [cls.created_at.desc()]
+        return [cls.created_at.asc()]
 
 
