@@ -205,29 +205,6 @@ async def activate_account(
     return MessageResponseSchema(message="User account activated successfully.")
 
 
-@router.post(
-    "/get_token/",
-    response_model=GetAccessTokenResponseSchema,
-)
-async def get_access_token(
-    payload: GetAccessTokenRequestSchema,
-    db: AsyncSession = Depends(get_db),
-):
-    stmt = (
-        select(UserModel)
-        .filter_by(email=payload.email)
-        .options(joinedload(UserModel.activation_token))
-    )
-    result = await db.execute(stmt)
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email",
-        )
-    token = user.activation_token.token
-    return GetAccessTokenResponseSchema(access_token=token)
-
 
 @router.post(
     "/password-reset/request/",
@@ -388,11 +365,6 @@ async def reset_old_password(
     stmt = select(UserModel).filter(UserModel.id==user.id)
     result = await db.execute(stmt)
     user = result.scalars().first()
-    if user.is_active == False:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This account is already activated.",
-        )
     if user.verify_password(data.old_password):
         user.password = data.new_password
         await db.commit()

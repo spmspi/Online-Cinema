@@ -13,7 +13,7 @@ from starlette import status
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
 from src.dependencies.user import get_user_group, get_current_user
-from src.dependencies.movies import get_movie_or_404
+from src.dependencies.movies import get_movie_or_404, Pagination, search_movies, build_page_url, get_or_create, logic_like
 from src.database.engine import get_db
 from src.database.models.movies import (
     MovieModel,
@@ -43,31 +43,13 @@ router = APIRouter()
 
 @router.get("/movies/", response_model=MovieListResponseSchema)
 async def get_movies_list(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=20),
-    search: Optional[str] = Query(
-        None, description="Search by title, description, actor, or director"
-    ),
+    pagination: Pagination = Depends(),
+    base_query = Depends(search_movies),
+    search: Optional[str] = Query(None, description="Search by title, description, actor, or director"),
     db: AsyncSession = Depends(get_db),
 ):
-    offset = (page - 1) * limit
 
-    base_query = select(MovieModel)
-
-    if search:
-        search_query = f"%{search}%"
-        search_filter = or_(
-            MovieModel.name.ilike(search_query),
-            MovieModel.description.ilike(search_query),
-            MovieModel.stars.any(StarModel.name.ilike(search_query)),
-            MovieModel.directors.any(DirectorModel.name.ilike(search_query)),
-        )
-        base_query = base_query.where(search_filter)
-
-    count_stmt = select(func.count()).select_from(base_query.subquery())
-    result_count = await db.execute(count_stmt)
-    total_items = result_count.scalar() or 0
-
+    total_items = await pagination.get_total_items(db, base_query)
     if total_items == 0:
         raise HTTPException(status_code=404, detail="No movies found.")
 
@@ -75,28 +57,19 @@ async def get_movies_list(
     if order_by:
         base_query = base_query.order_by(*order_by)
 
-    paginated_stmt = base_query.offset(offset).limit(limit)
-
-    result_movies = await db.execute(paginated_stmt)
-    movies = result_movies.scalars().all()
+    movies = await pagination.get_paginated_items(db, base_query)
 
     if not movies:
         raise HTTPException(status_code=404, detail="No movies found for this page.")
 
     movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
 
-    total_pages = (total_items + limit - 1) // limit
-
-    def build_page_url(target_page: int) -> str:
-        url = f"/theater/movies/?page={target_page}&limit={limit}"
-        if search:
-            url += f"&search={search}"
-        return url
+    total_pages = (total_items + pagination.limit - 1) // pagination.limit
 
     response = MovieListResponseSchema(
         movies=movie_list,
-        prev_page=build_page_url(page - 1) if page > 1 else None,
-        next_page=build_page_url(page + 1) if page < total_pages else None,
+        prev_page=build_page_url(pagination.page - 1, pagination.limit, search) if pagination.page > 1 else None,
+        next_page=build_page_url(pagination.page + 1, pagination.limit, search) if pagination.page < total_pages else None,
         total_pages=total_pages,
         total_items=total_items,
     )
@@ -126,50 +99,11 @@ async def create_movie(
         )
 
     try:
-        certification_stmt = select(CertificationModel).where(
-            CertificationModel.name == movie_data.certification
-        )
-        certification_res = await db.execute(certification_stmt)
-        certification = certification_res.scalars().first()
-        if not certification:
-            certification = CertificationModel(name=movie_data.certification)
-            db.add(certification)
-            await db.flush()
+        certification = await get_or_create(db, CertificationModel, movie_data.certification)
 
-        genres = []
-        for genres_name in movie_data.genres:
-            genre_stmt = select(GenreModel).where(GenreModel.name == genres_name)
-            genre_res = await db.execute(genre_stmt)
-            genre = genre_res.scalars().first()
-            if not genre:
-                genre = GenreModel(name=genres_name)
-                db.add(genre)
-                await db.flush()
-            genres.append(genre)
-
-        stars = []
-        for star_name in movie_data.stars:
-            star_stmt = select(StarModel).where(StarModel.name == star_name)
-            star_res = await db.execute(star_stmt)
-            star = star_res.scalars().first()
-            if not star:
-                star = StarModel(name=star_name)
-                db.add(star)
-                await db.flush()
-            stars.append(star)
-
-        directors = []
-        for director_name in movie_data.directors:
-            director_stmt = select(DirectorModel).where(
-                DirectorModel.name == director_name
-            )
-            director_res = await db.execute(director_stmt)
-            director = director_res.scalars().first()
-            if not director:
-                director = DirectorModel(name=director_name)
-                db.add(director)
-                db.flush()
-            directors.append(director)
+        genres = [await get_or_create(db, GenreModel, name) for name in movie_data.genres]
+        stars = [await get_or_create(db, StarModel, name) for name in movie_data.stars]
+        directors = [await get_or_create(db, DirectorModel, name) for name in movie_data.directors]
 
         movie = MovieModel(
             name=movie_data.name,
@@ -241,19 +175,11 @@ async def delete_movie(
 
 @router.patch("/movies/{movie_id}")
 async def update_movie(
-    movie_id: int,
     movie_data: MovieUpdateSchema,
+    movie: MovieModel = Depends(get_movie_or_404),
     db: AsyncSession = Depends(get_db),
     curret_user: UserModel = Depends(get_user_group),
 ):
-    stmt = select(MovieModel).where(MovieModel.id == movie_id)
-    result = await db.execute(stmt)
-    movie = result.scalars().first()
-
-    if not movie:
-        raise HTTPException(
-            status_code=404, detail="Movie with the given ID was not found."
-        )
 
     for field, value in movie_data.model_dump(exclude_unset=True).items():
         setattr(movie, field, value)
@@ -270,21 +196,15 @@ async def update_movie(
 
 @router.post("/movies/{movie_id}/rating", response_model=MovieRatingResponseSchema)
 async def add_movie_rating(
-    movie_id: int,
     data: MovieRatingRequestSchema,
+    movie: MovieModel = Depends(get_movie_or_404),
     db: AsyncSession = Depends(get_db),
     curret_user: UserModel = Depends(get_current_user),
 ):
-    movie_stmt = select(MovieModel).where(MovieModel.id == movie_id)
-    movie_result = await db.execute(movie_stmt)
-    movie = movie_result.scalar_one_or_none()
-
-    if not movie:
-        raise HTTPException(status_code=404, detail="Movie not found.")
 
     stmt = select(MovieRatingModel).filter(
         MovieRatingModel.user_id == curret_user.id,
-        MovieRatingModel.movie_id == movie_id,
+        MovieRatingModel.movie_id == movie.id,
     )
     result = await db.execute(stmt)
     rating = result.scalar_one_or_none()
@@ -292,7 +212,7 @@ async def add_movie_rating(
         raise HTTPException(status_code=400, detail="Rating already exists.")
     else:
         rating = MovieRatingModel(
-            movie_id=movie_id,
+            movie_id=movie.id,
             user_id=curret_user.id,
             score=data.score,
         )
@@ -300,7 +220,7 @@ async def add_movie_rating(
     await db.flush()
 
     avg_score_stmt = select(func.avg(MovieRatingModel.score)).where(
-        MovieRatingModel.movie_id == movie_id
+        MovieRatingModel.movie_id == movie.id
     )
     avg_score_result = await db.execute(avg_score_stmt)
     avg_score = avg_score_result.scalar_one_or_none()
@@ -371,45 +291,19 @@ async def remove_favorite_movie(
 
 @router.post("/movies/{movie_id}/like", response_model=MovieLikeResponseSchema)
 async def add_movie_like(
-    reqoest_like: MovieLikeRequestSchema,
+    request_like: MovieLikeRequestSchema,
     movie: MovieModel = Depends(get_movie_or_404),
     db: AsyncSession = Depends(get_db),
-    curret_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user),
 ):
-    stmt = select(MovieLikeModel).filter(
-        MovieLikeModel.user_id == curret_user.id, MovieLikeModel.movie_id == movie.id
+    movie = await logic_like(
+        db=db,
+        model_in_db=movie,
+        user=current_user,
+        request_like=request_like.is_like,
+        like_model=MovieLikeModel,
+        name_relation="movie_id"
     )
-    result = await db.execute(stmt)
-    like = result.scalar_one_or_none()
-    if like:
-        if like.is_like == reqoest_like.is_like:
-            if like.is_like:
-                movie.likes_count = movie.likes_count - 1
-            else:
-                movie.dislikes_count = movie.dislikes_count - 1
-            await db.delete(like)
-            await db.commit()
-        else:
-            like.is_like = reqoest_like.is_like
-            if reqoest_like.is_like:
-                movie.likes_count += 1
-                movie.dislikes_count -= 1
-            else:
-                movie.dislikes_count += 1
-                movie.likes_count -= 1
-            await db.commit()
-    else:
-        new_like = MovieLikeModel(
-            movie_id=movie.id,
-            user_id=curret_user.id,
-            is_like=reqoest_like.is_like,
-        )
-        db.add(new_like)
-        if reqoest_like.is_like:
-            movie.likes_count += 1
-        else:
-            movie.dislikes_count += 1
-    await db.commit()
 
     return MovieLikeResponseSchema(
         movie_id=movie.id,

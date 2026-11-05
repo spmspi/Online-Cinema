@@ -3,8 +3,15 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
+import random
 
-from src.database.models.movies import MovieModel, CertificationModel, GenreModel, DirectorModel, StarModel
+from src.database.models.movies import (
+    MovieModel,
+    CertificationModel,
+    GenreModel,
+    DirectorModel,
+    StarModel,
+)
 from src.session_postgres import AsyncPostgresqlSessionLocal
 from src.database.models.base import Base
 from src.database.engine import engine
@@ -34,82 +41,105 @@ async def init_test_movies(session: AsyncSession):
     if result.first():
         return
 
-
+    cert_g = CertificationModel(name="G")
+    cert_pg = CertificationModel(name="PG")
     cert_pg13 = CertificationModel(name="PG-13")
     cert_r = CertificationModel(name="R")
+    session.add_all([cert_g, cert_pg, cert_pg13, cert_r])
+    await session.flush()
+    certifications = [cert_g, cert_pg, cert_pg13, cert_r]
 
-    session.add_all([cert_pg13, cert_r])
+    genres_list = [
+        GenreModel(name="Action"),
+        GenreModel(name="Sci-Fi"),
+        GenreModel(name="Drama"),
+        GenreModel(name="Comedy"),
+        GenreModel(name="Thriller"),
+        GenreModel(name="Adventure"),
+        GenreModel(name="Crime"),
+        GenreModel(name="Fantasy"),
+    ]
+    session.add_all(genres_list)
+
+    directors_list = [
+        DirectorModel(name="Christopher Nolan"),
+        DirectorModel(name="Denis Villeneuve"),
+        DirectorModel(name="Quentin Tarantino"),
+        DirectorModel(name="Martin Scorsese"),
+        DirectorModel(name="David Fincher"),
+        DirectorModel(name="Steven Spielberg"),
+        DirectorModel(name="Ridley Scott"),
+        DirectorModel(name="The Wachowskis"),
+    ]
+    session.add_all(directors_list)
+
+    stars_list = [
+        StarModel(name="Leonardo DiCaprio"),
+        StarModel(name="Matthew McConaughey"),
+        StarModel(name="Keanu Reeves"),
+        StarModel(name="Tom Hardy"),
+        StarModel(name="Brad Pitt"),
+        StarModel(name="Christian Bale"),
+        StarModel(name="Scarlett Johansson"),
+        StarModel(name="Morgan Freeman"),
+        StarModel(name="Cillian Murphy"),
+        StarModel(name="Ryan Gosling"),
+    ]
+    session.add_all(stars_list)
     await session.flush()
 
+    adjectives = [
+        "The",
+        "Beyond",
+        "Last",
+        "Hidden",
+        "Secret",
+        "Lost",
+        "Return of the",
+        "Rise of the",
+        "Chronicles of",
+        "Dark",
+    ]
+    nouns = [
+        "Galaxy",
+        "Future",
+        "Shadow",
+        "Empire",
+        "Matrix",
+        "Journey",
+        "Hero",
+        "City",
+        "Ocean",
+        "Planet",
+        "Code",
+        "Mission",
+    ]
 
-    action_genre = GenreModel(name="Action")
-    scifi_genre = GenreModel(name="Sci-Fi")
-    drama_genre = GenreModel(name="Drama")
+    movies_to_add = []
+    for i in range(1, 101):
 
+        movie_name = f"{random.choice(adjectives)} {random.choice(nouns)} {i}"
 
-    nolan = DirectorModel(name="Christopher Nolan")
-    wachowski = DirectorModel(name="Lana Wachowski")
+        movie = MovieModel(
+            uuid_movie=uuid.uuid4(),
+            name=movie_name,
+            year=random.randint(1995, 2026),
+            time=random.randint(90, 180),
+            imdb=round(random.uniform(5.5, 9.3), 1),
+            votes=random.randint(10000, 2500000),
+            meta_score=round(random.uniform(50.0, 95.0), 1),
+            gross=round(random.uniform(20.5, 900.0), 1),
+            description=f"This is a generated test description for the movie {movie_name}. An epic story about adventure, mystery, and survival in a changing world.",
+            price=round(random.uniform(9.99, 24.99), 2),
+            certification_id=random.choice(certifications).id,
+            genres=random.sample(genres_list, k=random.randint(1, 3)),
+            directors=random.sample(directors_list, k=1),
+            stars=random.sample(stars_list, k=random.randint(1, 2)),
+        )
+        movies_to_add.append(movie)
 
-
-    dicaprio = StarModel(name="Leonardo DiCaprio")
-    matthew = StarModel(name="Matthew McConaughey")
-    keanu = StarModel(name="Keanu Reeves")
-
-
-    movie1 = MovieModel(
-        uuid_movie=uuid.uuid4(),
-        name="Inception",
-        year=2010,
-        time=148,
-        imdb=8.8,
-        votes=2400000,
-        meta_score=74.0,
-        gross=836.8,
-        description="A thief who steals corporate secrets through the use of dream-sharing technology...",
-        price=14.99,
-        certification_id=cert_pg13.id,
-        genres=[action_genre, scifi_genre, drama_genre],
-        directors=[nolan],
-        stars=[dicaprio]
-    )
-
-    movie2 = MovieModel(
-        uuid_movie=uuid.uuid4(),
-        name="Interstellar",
-        year=2014,
-        time=169,
-        imdb=8.7,
-        votes=1900000,
-        meta_score=74.0,
-        gross=677.8,
-        description="A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
-        price=16.99,
-        certification_id=cert_pg13.id,
-        genres=[scifi_genre, drama_genre],
-        directors=[nolan],
-        stars=[matthew]
-    )
-
-    movie3 = MovieModel(
-        uuid_movie=uuid.uuid4(),
-        name="The Matrix",
-        year=1999,
-        time=136,
-        imdb=8.7,
-        votes=1900000,
-        meta_score=73.0,
-        gross=465.3,
-        description="When a beautiful stranger leads computer hacker Neo to a forbidding underworld...",
-        price=12.99,
-        certification_id=cert_r.id,
-        genres=[action_genre, scifi_genre],
-        directors=[wachowski],
-        stars=[keanu]
-    )
-
-    session.add_all([movie1, movie2, movie3])
+    session.add_all(movies_to_add)
     await session.commit()
-
 
 
 @asynccontextmanager
@@ -119,5 +149,6 @@ async def lifespan(app: FastAPI):
     await init_default_groups()
     await init_test_movies(AsyncPostgresqlSessionLocal())
     yield
+
 
 app = FastAPI(lifespan=lifespan)
