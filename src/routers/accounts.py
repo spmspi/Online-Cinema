@@ -37,7 +37,7 @@ from src.security.interface_token import JWTAuthManagerInterface
 from src.dependencies.service import get_accounts_email_notificator
 from src.notifications.interfaces import EmailSenderInterface
 
-router = APIRouter()
+router = APIRouter(tags=["Accounts"])
 
 
 @router.post("/register/")

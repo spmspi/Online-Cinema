@@ -67,8 +67,8 @@ async def search_movies(
 
     return base_query
 
-def build_page_url(target_page: int, limit: int, search: Optional[str] = None) -> str:
-    url = f"/theater/movies/?page={target_page}&limit={limit}"
+def build_page_url(base_page: str, target_page: int, limit: int, search: Optional[str] = None) -> str:
+    url = f"/{base_page}/?page={target_page}&limit={limit}"
     if search:
         url += f"&search={search}"
     return url
@@ -103,13 +103,12 @@ async def logic_like(
     if like_in_db:
         if like_in_db.is_like == request_like:
             if like_in_db.is_like:
-                model_in_db.likes_count = model_in_db.likes_count - 1
+                model_in_db.likes_count -= 1
             else:
-                model_in_db.dislikes_count = model_in_db.dislikes_count - 1
+                model_in_db.dislikes_count -= 1
             await db.delete(like_in_db)
-            await db.commit()
         else:
-            like_in_db.is_like = like_in_db.is_like
+            like_in_db.is_like = request_like
             if request_like:
                 model_in_db.likes_count += 1
                 model_in_db.dislikes_count -= 1

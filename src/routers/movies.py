@@ -38,7 +38,7 @@ from src.schemas.movies import (
     GetFavoriteMoviesSchema,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["Movies"])
 
 
 @router.get("/movies/", response_model=MovieListResponseSchema)
@@ -68,8 +68,8 @@ async def get_movies_list(
 
     response = MovieListResponseSchema(
         movies=movie_list,
-        prev_page=build_page_url(pagination.page - 1, pagination.limit, search) if pagination.page > 1 else None,
-        next_page=build_page_url(pagination.page + 1, pagination.limit, search) if pagination.page < total_pages else None,
+        prev_page=build_page_url("movies", pagination.page - 1, pagination.limit, search) if pagination.page > 1 else None,
+        next_page=build_page_url("movies", pagination.page + 1, pagination.limit, search) if pagination.page < total_pages else None,
         total_pages=total_pages,
         total_items=total_items,
     )

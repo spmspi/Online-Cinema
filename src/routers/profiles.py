@@ -16,7 +16,7 @@ from src.security.secret_token import get_token
 from src.storage.interfaces import S3StorageInterface
 
 
-router = APIRouter()
+router = APIRouter(tags=["Profiles"])
 
 
 @router.post(
