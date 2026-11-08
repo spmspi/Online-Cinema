@@ -15,7 +15,7 @@ FavoriteMovie = Table(
     "favorite_movie",
     Base.metadata,
 Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True),
-Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),)
+Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True), back_populates="favorites")
 
 
 class UserGroupEnum(str, enum.Enum):

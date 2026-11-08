@@ -4,7 +4,10 @@ from fastapi import Depends, HTTPException, Query
 
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.testing.pickleable import User
 
+from src.dependencies.user import get_current_user
+from src.database.models.accounts import UserModel
 from src.database.models.movies import MovieModel, StarModel, DirectorModel
 from src.database.engine import get_db
 
@@ -63,9 +66,31 @@ async def search_movies(
             MovieModel.directors.any(DirectorModel.name.ilike(search_query)),
         )
         base_query = base_query.where(search_filter)
-
-
     return base_query
+
+
+async def search_favotite_movie(
+        search: Optional[str] = Query(
+            None, description="Search by title, description, actor, or director"),
+        db: AsyncSession = Depends(get_db),
+        user: UserModel = Depends(get_current_user) ):
+    base_query = (
+        select(MovieModel)
+        .join(UserModel.favorites)
+        .where(UserModel.id == user.id)
+    )
+
+    if search:
+        search_query = f"%{search}%"
+        search_filter = or_(
+            MovieModel.name.ilike(search_query),
+            MovieModel.description.ilike(search_query),
+            MovieModel.stars.any(StarModel.name.ilike(search_query)),
+            MovieModel.directors.any(DirectorModel.name.ilike(search_query)),
+        )
+        base_query = base_query.where(search_filter)
+    return base_query
+
 
 def build_page_url(base_page: str, target_page: int, limit: int, search: Optional[str] = None) -> str:
     url = f"/{base_page}/?page={target_page}&limit={limit}"

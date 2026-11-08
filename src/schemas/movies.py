@@ -106,3 +106,7 @@ class MovieLikeResponseSchema(BaseModel):
 
 class GetFavoriteMoviesSchema(BaseModel):
     movies: List[MovieListItemSchema]
+    prev_page: Optional[str]
+    next_page: Optional[str]
+    total_pages: int
+    total_items: int

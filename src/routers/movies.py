@@ -13,7 +13,7 @@ from starlette import status
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
 from src.dependencies.user import get_user_group, get_current_user
-from src.dependencies.movies import get_movie_or_404, Pagination, search_movies, build_page_url, get_or_create, logic_like
+from src.dependencies.movies import get_movie_or_404, Pagination, search_movies, build_page_url, get_or_create, logic_like, search_favotite_movie
 from src.database.engine import get_db
 from src.database.models.movies import (
     MovieModel,
@@ -241,7 +241,6 @@ async def add_in_favorite_movie(
         .where(UserModel.id == current_user.id)
     )
     result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
     if movie in current_user.favorites:
         raise HTTPException(status_code=400, detail="Movie already favorited")
 
@@ -255,18 +254,36 @@ async def add_in_favorite_movie(
 )
 async def get_favorite_movies(
     current_user: UserModel = Depends(get_current_user),
+    base_query = Depends(search_favotite_movie),
+    search: Optional[str] = Query(
+            None, description="Search by title, description, actor, or director"),
+    pagination: Pagination = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = (
-        select(UserModel)
-        .options(selectinload(UserModel.favorites))
-        .where(UserModel.id == current_user.id)
-    )
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-    movie_list = [MovieListItemSchema.model_validate(movie) for movie in user.favorites]
+    total_items = await pagination.get_total_items(db, base_query)
+    total_pages = (total_items + pagination.limit - 1) // pagination.limit if total_items > 0 else 1
 
-    return GetFavoriteMoviesSchema(movies=movie_list)
+    paginated_stmt = (
+        base_query
+        .limit(pagination.limit)
+        .offset(pagination.offset)
+    )
+
+    result = await db.execute(paginated_stmt)
+    movies = result.scalars().all()
+
+    movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
+
+    return GetFavoriteMoviesSchema(
+        movies=movie_list,
+        prev_page=build_page_url("/movies/favorites/", pagination.page - 1, pagination.limit,
+                                 search) if pagination.page > 1 else None,
+        next_page=build_page_url("/movies/favorites/", pagination.page + 1, pagination.limit,
+                                 search) if pagination.page < total_pages else None,
+        total_pages=total_pages,
+        total_items=total_items,
+
+    )
 
 
 @router.delete("/movies/{movie_id}/favorites/", response_model=MessageResponseSchema)
