@@ -8,7 +8,7 @@ from src.database.models.accounts import UserModel
 from src.database.models.base import Base
 
 
-class Cart(Base):
+class CartModel(Base):
     __tablename__ = 'cart'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -28,7 +28,7 @@ class Cart(Base):
     __table_args__ = (UniqueConstraint("user_id"),)
 
 
-class CartItem(Base):
+class CartItemModel(Base):
     __tablename__ = 'cart_item'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     cart_id: Mapped[int] = mapped_column(ForeignKey("cart.id", ondelete="CASCADE"),)
