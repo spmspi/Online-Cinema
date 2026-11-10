@@ -4,6 +4,7 @@ from src.routers.movies import router as movies_router
 from src.routers.accounts import router as accounts_router
 from src.routers.profiles import router as profiles_router
 from src.routers.comments import router as comments_router
+from src.routers.cart import router as cart_router
 
 app = FastAPI(
     title="Cinema",
@@ -16,3 +17,4 @@ app.include_router(movies_router)
 app.include_router(accounts_router)
 app.include_router(profiles_router)
 app.include_router(comments_router)
+app.include_router(cart_router)

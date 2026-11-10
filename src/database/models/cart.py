@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import Integer, ForeignKey, UniqueConstraint, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.models.movies import MovieModel
+from src.database.models.movies import MovieModel
 from src.database.models.accounts import UserModel
 from src.database.models.base import Base
 
@@ -19,8 +19,8 @@ class CartModel(Base):
         unique=True)
     user: Mapped[UserModel] = relationship("UserModel", back_populates="cart")
 
-    cart_items: Mapped[list["CartItem"]] = relationship(
-        "CartItem",
+    cart_items: Mapped[list["CartItemModel"]] = relationship(
+        "CartItemModel",
         back_populates="cart",
         cascade="all, delete-orphan",
     )
@@ -37,7 +37,7 @@ class CartItemModel(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    cart: Mapped["Cart"] = relationship("Cart", back_populates="cart_item")
+    cart: Mapped["CartModel"] = relationship("CartModel", back_populates="cart_items")
     movie: Mapped["MovieModel"] = relationship("MovieModel")
 
     __table_args__ = (UniqueConstraint("movie_id", "cart_id"),)

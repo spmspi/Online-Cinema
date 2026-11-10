@@ -4,7 +4,6 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
-from sqlalchemy.sql.functions import user
 from sqlalchemy.testing.pickleable import User
 
 from src.dependencies.service import get_jwt_auth_manager, oauth2_scheme

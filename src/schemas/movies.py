@@ -110,3 +110,12 @@ class GetFavoriteMoviesSchema(BaseModel):
     next_page: Optional[str]
     total_pages: int
     total_items: int
+
+class MovieListSchema(BaseModel):
+    id: int
+    name: str
+    year: int
+    meta_score: float
+    price: float
+
+    model_config = ConfigDict(from_attributes=True)

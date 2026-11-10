@@ -15,7 +15,7 @@ FavoriteMovie = Table(
     "favorite_movie",
     Base.metadata,
 Column("movie_id", Integer, ForeignKey("movies.id", ondelete="CASCADE"), primary_key=True),
-Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True), back_populates="favorites")
+Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True))
 
 
 class UserGroupEnum(str, enum.Enum):
@@ -51,6 +51,11 @@ class UserModel(Base):
     favorites: Mapped[List["MovieModel"]] = relationship(
         "MovieModel",
         secondary=FavoriteMovie,
+    )
+    cart: Mapped[Optional["CartModel"]] = relationship(
+        "CartModel",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
