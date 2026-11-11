@@ -7,7 +7,6 @@ from .base import Base
 from src.security.secret_token import generate_secure_token
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from src.validation import accounts as validators
-
 from ...security.passwords import hash_password, verify_password
 
 
