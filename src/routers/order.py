@@ -11,7 +11,7 @@ from starlette import status
 
 from src.database.models.movies import MovieModel
 from src.schemas.movies import MovieListSchema
-from src.dependencies.order import clear_cart_db
+from src.dependencies.order import clear_cart_db, get_order_by_id
 from src.schemas.order import OrderSchema, OrderListSchema, OrderDetailSchema
 from src.dependencies.cart import get_cart_in_current_user
 from src.database.models.cart import CartModel
@@ -94,11 +94,11 @@ async def delete_order(
 
 @router.get("/order/{order_id}/", response_model=OrderDetailSchema)
 async def get_order_detail(
-        order_id: int,
+        order: OrdersModel = Depends(get_order_by_id),
         user: UserModel = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(OrdersModel).where(OrdersModel.id == order_id).options(
+    stmt = select(OrdersModel).where(OrdersModel.id == order.id).options(
         selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie)
     )
     res = await db.execute(stmt)
@@ -113,3 +113,15 @@ async def get_order_detail(
         created_at=order.created_at,
         movies=movie_list,
     )
+
+@router.patch("/order/{order_id}/cancel", response_model=MessageResponseSchema)
+async def cancel_order(
+    order: OrdersModel = Depends(get_order_by_id),
+    db: AsyncSession = Depends(get_db),
+):
+    if order.status is StatusOrderEnum.PENDING:
+        order.status = StatusOrderEnum.CANCELED
+        await db.commit()
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="You cannot cancel an order if it has been paid for or has already been canceled.")
+    return {"message": "order canceled"}

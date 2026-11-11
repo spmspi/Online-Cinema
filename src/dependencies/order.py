@@ -6,6 +6,7 @@ from sqlalchemy.sql.functions import current_user
 from starlette import status
 from sqlalchemy import select, func, or_, delete
 
+from src.database.models.order import OrdersModel, OrderItemModel
 from src.schemas.movies import MovieListSchema
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
@@ -34,3 +35,18 @@ async def clear_cart_db(
         stmt_del = delete(CartItemModel).where(CartItemModel.cart_id == cart.id)
         await db.execute(stmt_del)
     await db.commit()
+
+async def get_order_by_id(
+        order_id: int,
+        current_user: UserModel = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(OrdersModel).where(OrdersModel.id == order_id).filter(OrdersModel.user_id == current_user.id).options(
+        selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie)
+    )
+    res = await db.execute(stmt)
+    order = res.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    return order
