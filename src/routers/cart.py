@@ -6,6 +6,7 @@ from sqlalchemy.sql.functions import current_user
 from starlette import status
 from sqlalchemy import select, func, or_, delete
 
+from src.dependencies.order import clear_cart_db
 from src.schemas.movies import MovieListSchema
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
@@ -80,17 +81,7 @@ async def clear_cart(
         cart: CartModel = Depends(get_cart_in_current_user),
         db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(CartItemModel).where(CartItemModel.cart_id == cart.id)
-    result = await db.execute(stmt)
-    cart_item = result.scalars().all()
-    if not cart_item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="The trash has already been emptied.")
-
-    else:
-        stmt_del = delete(CartItemModel).where(CartItemModel.cart_id == cart.id)
-        await db.execute(stmt_del)
-    await db.commit()
+    await clear_cart_db(cart, db)
     return {"message": "item removed from cart"}
 
 

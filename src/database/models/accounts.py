@@ -48,6 +48,7 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     _hashed_password: Mapped[str] = mapped_column("hashed_password", String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    orders: Mapped[list["OrdersModel"]] = relationship("OrdersModel", back_populates="user")
     favorites: Mapped[List["MovieModel"]] = relationship(
         "MovieModel",
         secondary=FavoriteMovie,
