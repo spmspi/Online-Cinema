@@ -10,6 +10,7 @@ from typing import Optional
 from sqlalchemy.sql.functions import current_user
 from starlette import status
 
+from src.database.models.order import OrdersModel, OrderItemModel, StatusOrderEnum
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
 from src.dependencies.user import get_user_group, get_current_user
@@ -159,13 +160,28 @@ async def delete_movie(
     db: AsyncSession = Depends(get_db),
     curret_user: UserModel = Depends(get_user_group),
 ):
-    stmt = select(MovieModel).where(MovieModel.id == movie_id)
+    stmt = (
+        select(MovieModel)
+        .where(MovieModel.id == movie_id)
+        .options(
+            selectinload(MovieModel.order_items).selectinload(OrderItemModel.order)
+        )
+    )
     result = await db.execute(stmt)
-    movie = result.scalars().first()
+    movie = result.scalar_one_or_none()
+
     if not movie:
         raise HTTPException(
             status_code=404, detail="Movie with the given ID was not found."
         )
+
+    for item in movie.order_items:
+        order = item.order
+        if order and order.status in (StatusOrderEnum.PENDING, StatusOrderEnum.PAID):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"The film cannot be deleted because it is part of an order with a status of '{order.status.name}'."
+            )
 
     await db.delete(movie)
     await db.commit()

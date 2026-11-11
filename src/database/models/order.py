@@ -60,6 +60,6 @@ class OrderItemModel(Base):
     movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id", ondelete="CASCADE"),)
 
     order: Mapped["OrdersModel"] = relationship("OrdersModel", back_populates="order_items")
-    movie: Mapped["MovieModel"] = relationship("MovieModel")
+    movie: Mapped["MovieModel"] = relationship("MovieModel", back_populates="order_items")
 
     __table_args__ = (UniqueConstraint("movie_id", "order_id"),)

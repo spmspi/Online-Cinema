@@ -158,6 +158,8 @@ class MovieModel(Base):
         "MovieLikeModel", back_populates="movie", cascade="all, delete-orphan"
     )
 
+    order_items: Mapped[list["OrderItemModel"]] = relationship("OrderItemModel", back_populates="movie")
+
     @classmethod
     def default_order_by(cls):
         return [cls.id.desc()]
