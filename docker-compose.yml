@@ -1,0 +1,148 @@
+services:
+  db:
+    image: 'postgres:17'
+    container_name: postgres_cinema
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cinema_network
+
+  web:
+    container_name: cinema_web
+    build: .
+    restart: always
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - minio
+      - db
+      - minio_mc
+    volumes:
+      - ./src:/app/src
+    networks:
+      - cinema_network
+
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - cinema_network
+
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: minio-cinema
+    command: server --console-address ":9001" /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    env_file:
+      - .env
+    volumes:
+      - minio_data:/data
+    networks:
+      - cinema_network
+
+  minio_mc:
+    build:
+      context: .
+      dockerfile: docker/minio_mc/Dockerfile
+    container_name: minio_mc_cinema
+    command: ["/bin/sh", "-c", "/commands/setup_minio.sh"]
+    env_file:
+      - .env
+    healthcheck:
+      test: [ "CMD", "test", "-f", "/tmp/setup_done" ]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    networks:
+      - cinema_network
+
+
+  mailhog:
+    restart: always
+    build:
+      context: .
+      dockerfile: ./docker/mailhog/Dockerfile
+    container_name: mailhog_cinema
+    command: ["/bin/bash", "-c", "/commands/setup_mailhog_auth.sh && /go/bin/MailHog"]
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    env_file:
+      - .env
+    environment:
+      MH_AUTH_FILE: /mailhog.auth
+    networks:
+      - cinema_network
+
+  redis:
+    image: redis:alpine
+    container_name: cinema_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - cinema_network
+
+  celery_worker:
+    build: .
+    container_name: cinema_celery_worker
+    command: celery -A src.celery.celery_app:celery_app worker --loglevel=info
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    networks:
+      - cinema_network
+
+  celery_beat:
+    build: .
+    container_name: cinema_celery_beat
+    command: celery -A src.celery.celery_app:celery_app beat --loglevel=info
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    networks:
+      - cinema_network
+
+  flower:
+    build: .
+    container_name: cinema_flower
+    command: ["python", "-m", "celery", "-A", "src.celery.celery_app:celery_app", "flower", "--port=5555"]
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - celery_beat
+    networks:
+      - cinema_network
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  cinema_network:
+    driver: bridge
