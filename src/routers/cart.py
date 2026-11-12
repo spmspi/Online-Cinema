@@ -6,6 +6,9 @@ from sqlalchemy.sql.functions import current_user
 from starlette import status
 from sqlalchemy import select, func, or_, delete
 
+from src.database.models.order import OrdersModel, OrderItemModel
+from src.database import models
+from src.database.models.order import OrderItemModel, StatusOrderEnum
 from src.dependencies.order import clear_cart_db
 from src.schemas.movies import MovieListSchema
 from src.schemas.accounts import MessageResponseSchema
@@ -41,6 +44,18 @@ async def add_movie_in_cart(
     movie: MovieModel = Depends(get_movie_or_404),
     db: AsyncSession = Depends(get_db),
 ):
+    stmt = select(OrderItemModel).join(OrderItemModel.order).where(
+        OrderItemModel.movie_id == movie.id,
+        OrdersModel.user_id == cart.user_id,
+        OrdersModel.status == StatusOrderEnum.PAID,
+    )
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    if order:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This film has already been purchased.",
+        )
     try:
         cart_item = CartItemModel(cart_id=cart.id, movie_id=movie.id)
         db.add(cart_item)
@@ -83,17 +98,3 @@ async def clear_cart(
 ):
     await clear_cart_db(cart, db)
     return {"message": "item removed from cart"}
-
-
-@router.get("/cart/{user_id}", response_model=CartListResponseSchema)
-async def get_cart_for_admin(
-        user_id: int,
-        cart: CartModel = Depends(get_cart_admin),
-        current_user: UserModel = Depends(get_admin_user_group),
-        db: AsyncSession = Depends(get_db),
-):
-    movie_list = [MovieListSchema.model_validate(item.movie) for item in cart.cart_items]
-    return CartListResponseSchema(
-        cart_id=cart.id,
-        movies=movie_list,
-    )

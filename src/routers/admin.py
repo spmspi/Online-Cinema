@@ -8,6 +8,9 @@ from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.exc import IntegrityError
 from starlette import status
 
+from src.database.models.cart import CartModel
+from src.dependencies.cart import get_cart_admin
+from src.schemas.cart import CartListResponseSchema
 from src.schemas.admin import AdminOrderDetailSchema
 from src.schemas.order import OrderDetailSchema, OrderSchema
 from src.database.models.order import OrdersModel
@@ -27,7 +30,7 @@ from src.database.models.movies import (
 from src.schemas.movies import (
     MovieDetailResponseSchema,
     MovieCreateRequestSchema,
-    MovieUpdateSchema,
+    MovieUpdateSchema, MovieListSchema,
 )
 
 router = APIRouter(
@@ -213,6 +216,20 @@ async def group_change(
 
     await db.commit()
     return MessageResponseSchema(message="Changed successfully.")
+
+
+@router.get("/cart/{user_id}", response_model=CartListResponseSchema)
+async def get_cart_for_admin(
+        user_id: int,
+        cart: CartModel = Depends(get_cart_admin),
+        current_user: UserModel = Depends(get_admin_user_group),
+        db: AsyncSession = Depends(get_db),
+):
+    movie_list = [MovieListSchema.model_validate(item.movie) for item in cart.cart_items]
+    return CartListResponseSchema(
+        cart_id=cart.id,
+        movies=movie_list,
+    )
 
 
 @router.get("/orders/", response_model=AdminOrderDetailSchema)
