@@ -10,6 +10,8 @@ from typing import Optional
 from sqlalchemy.sql.functions import current_user
 from starlette import status
 
+from src.dependencies.sort import MovieSortParams
+from src.dependencies.sort import MovieSortEnum
 from src.database.models.order import OrdersModel, OrderItemModel, StatusOrderEnum
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
@@ -45,18 +47,16 @@ router = APIRouter(tags=["Movies"])
 @router.get("/movies/", response_model=MovieListResponseSchema)
 async def get_movies_list(
     pagination: Pagination = Depends(),
+    sort: MovieSortParams = Depends(),
     base_query = Depends(search_movies),
     search: Optional[str] = Query(None, description="Search by title, description, actor, or director"),
     db: AsyncSession = Depends(get_db),
 ):
-
+    base_query = sort.sort(base_query)
     total_items = await pagination.get_total_items(db, base_query)
     if total_items == 0:
         raise HTTPException(status_code=404, detail="No movies found.")
 
-    order_by = MovieModel.default_order_by()
-    if order_by:
-        base_query = base_query.order_by(*order_by)
 
     movies = await pagination.get_paginated_items(db, base_query)
 
@@ -162,11 +162,13 @@ async def add_in_favorite_movie(
 async def get_favorite_movies(
     current_user: UserModel = Depends(get_current_user),
     base_query = Depends(search_favotite_movie),
+    sort: MovieSortParams = Depends(),
     search: Optional[str] = Query(
             None, description="Search by title, description, actor, or director"),
     pagination: Pagination = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
+    base_query = sort.sort(base_query)
     total_items = await pagination.get_total_items(db, base_query)
     total_pages = (total_items + pagination.limit - 1) // pagination.limit if total_items > 0 else 1
 

@@ -1,12 +1,18 @@
+from typing import Optional
 
 from fastapi import APIRouter, Query, HTTPException, Depends
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.exc import IntegrityError
 from starlette import status
 
+from src.schemas.admin import AdminOrderDetailSchema
+from src.schemas.order import OrderDetailSchema, OrderSchema
+from src.database.models.order import OrdersModel
+from src.database.models.accounts import UserModel, UserGroupModel
+from src.schemas.accounts import MessageResponseSchema, ActivateAccountRequestSchema, ChangeGroupSchema
 from src.database.models.order import OrderItemModel, StatusOrderEnum
 from src.dependencies.user import get_admin_user_group
 from src.dependencies.movies import get_movie_or_404, get_or_create
@@ -138,5 +144,96 @@ async def update_movie(
         raise HTTPException(status_code=400, detail="Invalid input data.")
 
     return {"detail": "Movie updated successfully."}
+
+
+
+@router.post(
+    "/activate_account/",
+    response_model=MessageResponseSchema,
+)
+async def activate_account(
+        email: ActivateAccountRequestSchema,
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(UserModel).filter_by(email=email.email)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if user.is_active == True:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account is already activated.",
+        )
+    user.is_active = True
+    await db.commit()
+    return MessageResponseSchema(message="Activated successfully.")
+
+
+
+@router.post(
+    "/group_change/",
+    response_model=MessageResponseSchema,
+)
+async def group_change(
+    data: ChangeGroupSchema,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(UserModel)
+        .where(UserModel.email == data.email)
+        .options(joinedload(UserModel.group))
+    )
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if user.is_active == False:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account has not been activated.",
+        )
+
+    stmt_group = select(UserGroupModel).filter_by(name=data.role)
+    group_result = await db.execute(stmt_group)
+    group_obj = group_result.scalar_one_or_none()
+
+    if not group_obj:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Specified group not found.",
+        )
+    user.group = group_obj
+
+    await db.commit()
+    return MessageResponseSchema(message="Changed successfully.")
+
+
+@router.get("/orders/", response_model=AdminOrderDetailSchema)
+async def get_orders_user(
+    status: Optional[StatusOrderEnum] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(OrdersModel)
+    if status:
+        stmt = stmt.where(OrdersModel.status == status)
+    stmt = stmt.order_by(OrdersModel.created_at)
+
+    result = await db.execute(stmt)
+    orders = result.scalars().all()
+
+    order_list = [OrderSchema.model_validate(order) for order in orders]
+
+    return AdminOrderDetailSchema(
+        total=len(order_list),
+        orders=order_list,
+    )
+
 
 

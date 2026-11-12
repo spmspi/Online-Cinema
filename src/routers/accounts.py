@@ -326,32 +326,6 @@ async def logout_user(
     await db.commit()
     return MessageResponseSchema(message="Logout successfully.")
 
-@router.post(
-    "/activate_account_for_admin/",
-    response_model=MessageResponseSchema,
-)
-async def activate_account_for_admin(
-        email: ActivateAccountRequestSchema,
-        db: AsyncSession = Depends(get_db),
-        is_admin: UserModel = Depends(get_admin_user_group)
-):
-    stmt = select(UserModel).filter_by(email=email.email)
-    result = await db.execute(stmt)
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    if user.is_active == True:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This account is already activated.",
-        )
-    user.is_active = True
-    await db.commit()
-    return MessageResponseSchema(message="Activated successfully.")
-
 
 @router.post(
     "/reset_old_password/",
@@ -374,48 +348,6 @@ async def reset_old_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="something went wrong",
         )
-
-
-@router.post(
-    "/group_change_for_admin/",
-    response_model=MessageResponseSchema,
-)
-async def group_change_for_admin(
-    data: ChangeGroupSchema,
-    db: AsyncSession = Depends(get_db),
-    is_admin: UserModel = Depends(get_admin_user_group)
-):
-    stmt = (
-        select(UserModel)
-        .where(UserModel.email == data.email)
-        .options(joinedload(UserModel.group))
-    )
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    if user.is_active == False:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This account has not been activated.",
-        )
-
-    stmt_group = select(UserGroupModel).filter_by(name=data.role)
-    group_result = await db.execute(stmt_group)
-    group_obj = group_result.scalar_one_or_none()
-
-    if not group_obj:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Specified group not found.",
-        )
-    user.group = group_obj
-
-    await db.commit()
-    return MessageResponseSchema(message="Changed successfully.")
 
 
 
