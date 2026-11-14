@@ -6,7 +6,7 @@ from sqlalchemy.sql.functions import current_user
 from starlette import status
 from sqlalchemy import select, func, or_, delete
 
-from src.database.models.order import OrdersModel, OrderItemModel
+from src.database.models.order import OrdersModel, OrderItemModel, StatusOrderEnum
 from src.schemas.movies import MovieListSchema
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
@@ -49,4 +49,17 @@ async def get_order_by_id(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
+    return order
+
+async def check_unpaid_order(
+        user: UserModel = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db)
+):
+    stmt = select(OrdersModel).where(OrdersModel.user_id == user.id).where(
+        OrdersModel.status == StatusOrderEnum.PENDING
+    ).options(
+        selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie),
+    )
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
     return order

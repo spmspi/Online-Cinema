@@ -9,9 +9,10 @@ from typing import Optional
 from sqlalchemy.sql.functions import current_user
 from starlette import status
 
+from src.dependencies.payments import pay_order
 from src.database.models.movies import MovieModel
 from src.schemas.movies import MovieListSchema
-from src.dependencies.order import clear_cart_db, get_order_by_id
+from src.dependencies.order import clear_cart_db, get_order_by_id, check_unpaid_order
 from src.schemas.order import OrderSchema, OrderListSchema, OrderDetailSchema
 from src.dependencies.cart import get_cart_in_current_user
 from src.database.models.cart import CartModel
@@ -28,8 +29,11 @@ router = APIRouter(tags=["order"])
 @router.post("/order/", response_model=OrderSchema)
 async def create_order(
         cart: CartModel = Depends(get_cart_in_current_user),
+        order_in_pending: OrdersModel = Depends(check_unpaid_order),
         db: AsyncSession = Depends(get_db),
 ):
+    if order_in_pending:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="You have unpaid orders.")
     try:
         order_items = []
         total_amount = 0

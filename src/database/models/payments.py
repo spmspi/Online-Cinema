@@ -19,9 +19,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.models.order import OrdersModel
-from src.database.models.movies import MovieModel
-from src.database.models.accounts import UserModel
 from src.database.models.base import Base
 
 
@@ -50,8 +47,7 @@ class PaymentsModel(Base):
     amount: Mapped[float] = mapped_column(DECIMAL(10, 2))
     external_payment_id: Mapped[str] = mapped_column(String)
 
-    user: Mapped[UserModel] = relationship("UserModel", back_populates="payments")
-    order: Mapped[OrdersModel] = relationship("OrdersModel", back_populates="payments")
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="payments")
     order_items: Mapped[list["PaymentsItemModel"]] = relationship(
         "PaymentsItemModel",
         back_populates="payment",
@@ -68,6 +64,6 @@ class PaymentsItemModel(Base):
     price_at_payment: Mapped[float] = mapped_column(DECIMAL(10, 2))
 
 
-    payment: Mapped[PaymentsModel] = relationship("PaymentsModel", back_populates="order_items")
+    payment: Mapped["PaymentsModel"] = relationship("PaymentsModel", back_populates="order_items")
 
     __table_args__ = (UniqueConstraint("payment_id", "order_item_id"),)

@@ -17,6 +17,7 @@ LOGIN_TIME_DAYS: int = 7
 class Settings(BaseAppSettings):
     BASE_DIR: Path = Path(__file__).parent.parent
     PATH_TO_DB: str = str(BASE_DIR / "database" / "source" / "theater.db")
+    BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
 
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "test_user")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "test_password")
@@ -49,6 +50,9 @@ class Settings(BaseAppSettings):
     EMAIL_HOST_PASSWORD: str = os.getenv("EMAIL_HOST_PASSWORD", "test_password")
     EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "False").lower() == "true"
     MAILHOG_API_PORT: int = os.getenv("MAILHOG_API_PORT", 8025)
+
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "secret_key")
+    STRIPE_WEBHOOK_SECRET:str = os.getenv("STRIPE_WEBHOOK_SECRET", "secret_webhook_key")
 
     @property
     def S3_STORAGE_ENDPOINT(self) -> str:

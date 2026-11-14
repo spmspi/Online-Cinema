@@ -19,7 +19,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database.models.movies import MovieModel
 from src.database.models.accounts import UserModel
 from src.database.models.base import Base
 
