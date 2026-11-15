@@ -40,6 +40,7 @@ async def create_checkout_session(
             metadata={
                 "user_id": current_user.id,
                 "email": current_user.email,
+                "order_id": order.id,
             },
             mode="payment",
             success_url=settings.BASE_URL + "/success?session_id={CHECKOUT_SESSION_ID}",
@@ -51,7 +52,7 @@ async def create_checkout_session(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/webhook/")
+@router.post("/webhook")
 async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
@@ -63,7 +64,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
 
-        session_dict = session.to_dict()
+        session_dict = session.to_dict(for_json=True)
         metadata = session_dict.get("metadata", {})
 
         user_id = metadata.get("user_id")
@@ -72,14 +73,12 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             stmt = select(OrdersModel).where(OrdersModel.id == int(order_id)).options(selectinload(OrdersModel.order_items))
             result = await db.execute(stmt)
             order = result.scalar_one_or_none()
-            if order and order.status != StatusOrderEnum.PAID:
-                order.status = StatusOrderEnum.PAID
-
+            if order:
                 new_payment = PaymentsModel(
-                    user_id=session["metadata"].get("user_id"),
-                    order_id=session["metadata"].get("order_id"),
-                    external_payment_id=session["id"],
-                    amount=session["amount_total"] / 100,
+                    user_id=int(user_id),
+                    order_id=int(order_id),
+                    external_payment_id=session_dict.get("id"),
+                    amount=session_dict.get("amount_total") / 100,
                     status=StatusPaymentsEnum.SUCCESSFUL,
                 )
                 db.add(new_payment)
@@ -87,10 +86,25 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 for item in order.order_items:
                     payment_item = PaymentsItemModel(
                         payment_id=new_payment.id,
-                        order_item=item.id,
+                        order_item_id=item.id,
                         price_at_payment=item.price_at_order,
                     )
                     db.add(payment_item)
+                order.status = StatusOrderEnum.PAID
                 await db.commit()
     return {"status": "success"}
 
+@router.get("/success/")
+async def stripe_success(
+        session_id: str,
+        db_session: AsyncSession = Depends(get_db),
+):
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        return {"status": "success",
+                "message": "payment successfully completed",
+                "stripe_session_id": session_id,
+                "user_email": session["customer_email"],
+                }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
