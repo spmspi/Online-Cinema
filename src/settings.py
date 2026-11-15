@@ -43,6 +43,7 @@ class Settings(BaseAppSettings):
     ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME: str = "activation_complete.html"
     PASSWORD_RESET_TEMPLATE_NAME: str = "password_reset_request.html"
     PASSWORD_RESET_COMPLETE_TEMPLATE_NAME: str = "password_reset_complete.html"
+    PAYMENT_SUCCESSFUL_EMAIL_TEMPLATE_NAME: str = "successful_payment.html"
 
     EMAIL_HOST: str = os.getenv("EMAIL_HOST", "host")
     EMAIL_PORT: int = int(os.getenv("EMAIL_PORT", 25))

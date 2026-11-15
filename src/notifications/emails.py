@@ -23,6 +23,7 @@ class EmailSender(EmailSenderInterface):
         activation_complete_email_template_name: str,
         password_email_template_name: str,
         password_complete_email_template_name: str,
+        payment_successful_email_template_name: str,
     ):
         self._hostname = hostname
         self._port = port
@@ -33,6 +34,7 @@ class EmailSender(EmailSenderInterface):
         self._activation_complete_email_template_name = activation_complete_email_template_name
         self._password_email_template_name = password_email_template_name
         self._password_complete_email_template_name = password_complete_email_template_name
+        self._payment_successful_email_template_name = payment_successful_email_template_name
 
         self._env = Environment(loader=FileSystemLoader(template_dir))
 
@@ -116,4 +118,11 @@ class EmailSender(EmailSenderInterface):
         template = self._env.get_template(self._password_complete_email_template_name)
         html_content = template.render(email=email, login_link=login_link)
         subject = "Your Password Has Been Successfully Reset"
+        await self._send_email(email, subject, html_content)
+
+    async def send_payment_successful_email(self, email: str, items: list) -> None:
+
+        template = self._env.get_template(self._payment_successful_email_template_name)
+        html_content = template.render(email=email, items=items)
+        subject = "Payment successful"
         await self._send_email(email, subject, html_content)

@@ -5,7 +5,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.database.models.order import StatusOrderEnum
+from src.schemas.movies import MovieListSchema
+from src.dependencies.service import get_accounts_email_notificator
+from src.notifications.interfaces import EmailSenderInterface
+from src.database.models.order import StatusOrderEnum, OrderItemModel
 from src.database.models.payments import PaymentsItemModel
 from src.settings import Settings, get_settings
 from src.database.models.order import OrdersModel
@@ -52,8 +55,10 @@ async def create_checkout_session(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/webhook")
-async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+@router.post("/webhook/")
+async def stripe_webhook(request: Request,
+                         email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
+                         db: AsyncSession = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     webhook_secret = settings.STRIPE_WEBHOOK_SECRET
@@ -68,6 +73,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         metadata = session_dict.get("metadata", {})
 
         user_id = metadata.get("user_id")
+        user_email = metadata.get("email")
         order_id = metadata.get("order_id")
         if order_id and user_id:
             stmt = select(OrdersModel).where(OrdersModel.id == int(order_id)).options(selectinload(OrdersModel.order_items))
@@ -83,15 +89,26 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 )
                 db.add(new_payment)
                 await db.flush()
+                items_in_order = []
                 for item in order.order_items:
                     payment_item = PaymentsItemModel(
                         payment_id=new_payment.id,
                         order_item_id=item.id,
                         price_at_payment=item.price_at_order,
                     )
+                    items_in_order.append(item)
                     db.add(payment_item)
+                stmt = select(OrdersModel).where(OrdersModel.id == order.id).options(
+                    selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie)
+                )
+                res = await db.execute(stmt)
+                order = res.scalar_one_or_none()
+                movie_list = [MovieListSchema.model_validate(item.movie) for item in order.order_items]
                 order.status = StatusOrderEnum.PAID
                 await db.commit()
+                await email_sender.send_payment_successful_email(
+                    email=user_email,
+                    items=movie_list)
     return {"status": "success"}
 
 @router.get("/success/")
