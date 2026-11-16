@@ -45,7 +45,7 @@ class PaymentsModel(Base):
     )
     status: Mapped[Optional[StatusPaymentsEnum]] = mapped_column(Enum(StatusPaymentsEnum))
     amount: Mapped[float] = mapped_column(DECIMAL(10, 2))
-    external_payment_id: Mapped[str] = mapped_column(String)
+    external_payment_id: Mapped[str] = mapped_column(String, nullable=False)
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="payments")
     order_items: Mapped[list["PaymentsItemModel"]] = relationship(

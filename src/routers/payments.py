@@ -85,7 +85,7 @@ async def stripe_webhook(request: Request,
                 new_payment = PaymentsModel(
                     user_id=int(user_id),
                     order_id=int(order_id),
-                    external_payment_id=session_dict.get("id"),
+                    external_payment_id=session_dict.get("payment_intent"),
                     amount=session_dict.get("amount_total") / 100,
                     status=StatusPaymentsEnum.SUCCESSFUL,
                 )
@@ -148,3 +148,35 @@ async def get_my_payments(
     payments = result.scalars().all()
     payments_list = [PaymentsSchema.model_validate(payment) for payment in payments]
     return PaymentListsSchema(payments=payments_list)
+
+
+@router.post(
+    "/{payment_id}/refund/",)
+async def refund_payment(
+        payment_id: int,
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(PaymentsModel).where(PaymentsModel.id == payment_id)
+    result = await db.execute(stmt)
+    payment = result.scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if payment.status == StatusPaymentsEnum.SUCCESSFUL:
+        try:
+            refund = stripe.Refund.create(
+                payment_intent=payment.external_payment_id
+            )
+            payment.status = StatusPaymentsEnum.REFUNDED
+            order_stmt = select(OrdersModel).where(OrdersModel.id == payment.order_id)
+            order_result = await db.execute(order_stmt)
+            order = order_result.scalar_one_or_none()
+            if order:
+                order.status = StatusOrderEnum.CANCELED
+            await db.commit()
+            return {"status": "success",
+                    "message": "a refund request has been submitted",
+                    "stripe_refund_id": refund.id}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        raise HTTPException(status_code=404, detail="Something went wrong")

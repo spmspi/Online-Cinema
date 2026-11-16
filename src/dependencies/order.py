@@ -63,13 +63,14 @@ async def check_unpaid_order(
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
     total = 0
-    for item in order.order_items:
-        current_price = item.movie.price
-        if item.price_at_order != current_price:
-            item.price_at_order = current_price
-        total += item.price_at_order
-    if order.total_amount != total:
-        order.total_amount = total
-        await db.commit()
-        await db.refresh(order)
+    if order:
+        for item in order.order_items:
+            current_price = item.movie.price
+            if item.price_at_order != current_price:
+                item.price_at_order = current_price
+            total += item.price_at_order
+        if order.total_amount != total:
+            order.total_amount = total
+            await db.commit()
+            await db.refresh(order)
     return order
