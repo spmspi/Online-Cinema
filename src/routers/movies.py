@@ -236,3 +236,18 @@ async def add_movie_like(
         like=movie.likes_count,
         dislike=movie.dislikes_count,
     )
+
+@router.get("/movies/genres/")
+async def get_movie_genre(
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(GenreModel).options(selectinload(GenreModel.movies))
+    result = await db.execute(stmt)
+    genres = result.scalars().all()
+
+    genres_dict = {}
+    for genre in genres:
+        genres_dict[genre.name] = len(genre.movies)
+
+    return genres_dict
+
