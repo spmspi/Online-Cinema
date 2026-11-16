@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, select
 
+from database.models.payments import PaymentsModel
 from src.database.models.accounts import UserModel
 from src.database.models.cart import CartModel
 from src.database.models.movies import MovieModel
@@ -22,11 +23,10 @@ def cleanup_tokens_task():
 @celery_app.task(name="src.celery.tasks.check_status_order_task")
 def check_status_order_task():
     with SyncSessionLocal() as session:
-        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
-        stmt = select(OrdersModel).where(OrdersModel.status == StatusOrderEnum.PENDING).where(OrdersModel.created_at <= one_hour_ago)
+        hour_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+        stmt = select(OrdersModel).where(OrdersModel.status == StatusOrderEnum.PENDING).where(OrdersModel.created_at <= hour_ago)
         expired = session.execute(stmt).scalars().all()
         for order in expired:
             order.status = StatusOrderEnum.CANCELED
         if expired:
             session.commit()
-

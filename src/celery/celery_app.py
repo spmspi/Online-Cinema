@@ -17,7 +17,7 @@ celery_app.conf.beat_schedule = {
     },
     "check-expired-orders": {
         "task": "src.celery.tasks.check_status_order_task",
-        "schedule": timedelta(minutes=10)
+        "schedule": timedelta(hours=24)
     }
 }
 celery_app.conf.timezone = "UTC"
