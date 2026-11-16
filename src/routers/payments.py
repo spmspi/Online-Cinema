@@ -57,7 +57,6 @@ async def create_checkout_session(
 
 @router.post("/webhook/")
 async def stripe_webhook(request: Request,
-                         email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
                          db: AsyncSession = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
@@ -73,7 +72,6 @@ async def stripe_webhook(request: Request,
         metadata = session_dict.get("metadata", {})
 
         user_id = metadata.get("user_id")
-        user_email = metadata.get("email")
         order_id = metadata.get("order_id")
         if order_id and user_id:
             stmt = select(OrdersModel).where(OrdersModel.id == int(order_id)).options(selectinload(OrdersModel.order_items))
@@ -98,26 +96,32 @@ async def stripe_webhook(request: Request,
                     )
                     items_in_order.append(item)
                     db.add(payment_item)
-                stmt = select(OrdersModel).where(OrdersModel.id == order.id).options(
-                    selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie)
-                )
-                res = await db.execute(stmt)
-                order = res.scalar_one_or_none()
-                movie_list = [MovieListSchema.model_validate(item.movie) for item in order.order_items]
                 order.status = StatusOrderEnum.PAID
                 await db.commit()
-                await email_sender.send_payment_successful_email(
-                    email=user_email,
-                    items=movie_list)
     return {"status": "success"}
+
 
 @router.get("/success/")
 async def stripe_success(
         session_id: str,
-        db_session: AsyncSession = Depends(get_db),
+        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
+        db: AsyncSession = Depends(get_db),
 ):
     try:
         session = stripe.checkout.Session.retrieve(session_id)
+        session_dict = session.to_dict(for_json=True)
+        metadata = session_dict.get("metadata", {})
+        order_id = metadata.get("order_id")
+        user_email = metadata.get("email")
+        stmt = select(OrdersModel).where(OrdersModel.id == int(order_id)).options(
+            selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie)
+        )
+        res = await db.execute(stmt)
+        order = res.scalar_one_or_none()
+        movie_list = [MovieListSchema.model_validate(item.movie) for item in order.order_items]
+        await email_sender.send_payment_successful_email(
+            email=user_email,
+            items=movie_list)
         return {"status": "success",
                 "message": "payment successfully completed",
                 "stripe_session_id": session_id,
