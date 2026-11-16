@@ -34,7 +34,6 @@ async def create_checkout_session(
         db: AsyncSession = Depends(get_db),
         ):
 
-
     try:
         session = stripe.checkout.Session.create(
             line_items=[{
