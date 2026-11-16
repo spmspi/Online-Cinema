@@ -8,6 +8,8 @@ from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.exc import IntegrityError
 from starlette import status
 
+from src.database.models.payments import PaymentsModel, StatusPaymentsEnum
+from src.schemas.payments import PaymentsSchema, PaymentListsSchema
 from src.database.models.cart import CartModel
 from src.dependencies.cart import get_cart_admin
 from src.schemas.cart import CartListResponseSchema
@@ -251,6 +253,24 @@ async def get_orders_user(
         total=len(order_list),
         orders=order_list,
     )
+
+
+@router.get("/payments/", response_model=PaymentListsSchema)
+async def get_all_payments(
+        status: Optional[StatusPaymentsEnum] = None,
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(PaymentsModel)
+    if status:
+        stmt = stmt.where(PaymentsModel.status == status)
+    stmt = stmt.order_by(PaymentsModel.created_at)
+    result = await db.execute(stmt)
+    payments = result.scalars().all()
+    payments_list = [PaymentsSchema.model_validate(payment) for payment in payments]
+    return PaymentListsSchema(payments=payments_list)
+
+
+
 
 
 

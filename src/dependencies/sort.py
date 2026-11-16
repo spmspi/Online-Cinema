@@ -37,3 +37,4 @@ class MovieSortParams:
             stmt = stmt.order_by(MovieModel.meta_score.desc())
         return stmt
 
+

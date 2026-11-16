@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query, Request, status, Depends
 import stripe, os
 from sqlalchemy import select
@@ -5,6 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from src.schemas.payments import PaymentListsSchema, PaymentsSchema
 from src.schemas.movies import MovieListSchema
 from src.dependencies.service import get_accounts_email_notificator
 from src.notifications.interfaces import EmailSenderInterface
@@ -30,6 +33,8 @@ async def create_checkout_session(
         current_user: UserModel = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
         ):
+
+
     try:
         session = stripe.checkout.Session.create(
             line_items=[{
@@ -129,3 +134,18 @@ async def stripe_success(
                 }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/payments/", response_model=PaymentListsSchema)
+async def get_my_payments(
+        status: Optional[StatusPaymentsEnum] = None,
+        current_user: UserModel = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+):
+    stmt = select(PaymentsModel).where(PaymentsModel.user_id == current_user.id)
+    if status:
+        stmt = stmt.where(PaymentsModel.status == status)
+    stmt = stmt.order_by(PaymentsModel.created_at)
+    result = await db.execute(stmt)
+    payments = result.scalars().all()
+    payments_list = [PaymentsSchema.model_validate(payment) for payment in payments]
+    return PaymentListsSchema(payments=payments_list)
