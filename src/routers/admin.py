@@ -236,12 +236,23 @@ async def get_cart_for_admin(
 
 @router.get("/orders/", response_model=AdminOrderDetailSchema)
 async def get_orders_user(
-    status: Optional[StatusOrderEnum] = None,
+    status_order: Optional[StatusOrderEnum] = None,
+    user_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(OrdersModel)
-    if status:
-        stmt = stmt.where(OrdersModel.status == status)
+    if status_order:
+        stmt = stmt.where(OrdersModel.status == status_order)
+    if user_id:
+        stmt_user = select(UserModel).where(UserModel.id == user_id)
+        res = await db.execute(stmt_user)
+        user = res.scalar_one_or_none()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User not found",
+            )
+        stmt = stmt.where(OrdersModel.user_id == user_id)
     stmt = stmt.order_by(OrdersModel.created_at)
 
     result = await db.execute(stmt)
