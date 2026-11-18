@@ -11,7 +11,8 @@ from src.database.models.accounts import (
     UserModel,
     UserGroupModel,
     UserGroupEnum,
-    RefreshTokenModel, PasswordResetTokenModel,
+    RefreshTokenModel,
+    PasswordResetTokenModel,
 )
 from src.database.engine import get_db
 from src.dependencies.service import get_jwt_auth_manager
@@ -47,7 +48,7 @@ router = APIRouter(tags=["Accounts"])
 async def register_user(
     user_data: UserRegistrationRequestSchema,
     db: AsyncSession = Depends(get_db),
-    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> UserRegistrationResponseSchema:
 
     stmt = select(UserModel).where(UserModel.email == user_data.email)
@@ -92,10 +93,7 @@ async def register_user(
     else:
         activation_link = "http://127.0.0.1/accounts/activate/"
 
-        await email_sender.send_activation_email(
-            new_user.email,
-            activation_link
-        )
+        await email_sender.send_activation_email(new_user.email, activation_link)
 
     return UserRegistrationResponseSchema.model_validate(new_user)
 
@@ -161,7 +159,7 @@ async def login_user(
 async def activate_account(
     activation_data: UserActivationRequestSchema,
     db: AsyncSession = Depends(get_db),
-    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
 
     stmt = (
@@ -204,12 +202,10 @@ async def activate_account(
     login_link = "http://127.0.0.1/accounts/login/"
 
     await email_sender.send_activation_complete_email(
-        str(activation_data.email),
-        login_link
+        str(activation_data.email), login_link
     )
 
     return MessageResponseSchema(message="User account activated successfully.")
-
 
 
 @router.post(
@@ -220,7 +216,7 @@ async def activate_account(
 async def request_password_reset_token(
     data: PasswordResetRequestSchema,
     db: AsyncSession = Depends(get_db),
-    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
 
     stmt = select(UserModel).filter_by(email=data.email)
@@ -245,8 +241,7 @@ async def request_password_reset_token(
     password_reset_complete_link = "http://127.0.0.1/accounts/password-reset-complete/"
 
     await email_sender.send_password_reset_email(
-        str(data.email),
-        password_reset_complete_link
+        str(data.email), password_reset_complete_link
     )
 
     return MessageResponseSchema(
@@ -261,7 +256,7 @@ async def request_password_reset_token(
 async def reset_password(
     data: PasswordResetCompleteRequestSchema,
     db: AsyncSession = Depends(get_db),
-    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator)
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     stmt = select(UserModel).filter_by(email=data.email)
     result = await db.execute(stmt)
@@ -304,10 +299,7 @@ async def reset_password(
 
     login_link = "http://127.0.0.1/accounts/login/"
 
-    await email_sender.send_password_reset_complete_email(
-        str(data.email),
-        login_link
-    )
+    await email_sender.send_password_reset_complete_email(str(data.email), login_link)
 
     return MessageResponseSchema(message="Password reset successfully.")
 
@@ -317,8 +309,8 @@ async def reset_password(
     response_model=MessageResponseSchema,
 )
 async def logout_user(
-        user: UserModel = Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(RefreshTokenModel).filter_by(user_id=user.id)
     result = await db.execute(stmt)
@@ -338,11 +330,11 @@ async def logout_user(
     response_model=MessageResponseSchema,
 )
 async def reset_old_password(
-        data: ResetOldPasswordRequestSchema,
-        db: AsyncSession = Depends(get_db),
-        user: UserModel = Depends(get_current_user),
+    data: ResetOldPasswordRequestSchema,
+    db: AsyncSession = Depends(get_db),
+    user: UserModel = Depends(get_current_user),
 ):
-    stmt = select(UserModel).filter(UserModel.id==user.id)
+    stmt = select(UserModel).filter(UserModel.id == user.id)
     result = await db.execute(stmt)
     user = result.scalars().first()
     if user.verify_password(data.old_password):
@@ -354,7 +346,3 @@ async def reset_old_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="something went wrong",
         )
-
-
-
-

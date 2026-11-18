@@ -16,15 +16,22 @@ from src.celery.celery_app import celery_app
 def cleanup_tokens_task():
     with SyncSessionLocal() as session:
         with session.begin():
-            stmt = delete(RefreshTokenModel).where(RefreshTokenModel.expires_at < datetime.now())
+            stmt = delete(RefreshTokenModel).where(
+                RefreshTokenModel.expires_at < datetime.now()
+            )
             result = session.execute(stmt)
             session.commit()
+
 
 @celery_app.task(name="src.celery.tasks.check_status_order_task")
 def check_status_order_task():
     with SyncSessionLocal() as session:
         hour_ago = datetime.now(timezone.utc) - timedelta(hours=24)
-        stmt = select(OrdersModel).where(OrdersModel.status == StatusOrderEnum.PENDING).where(OrdersModel.created_at <= hour_ago)
+        stmt = (
+            select(OrdersModel)
+            .where(OrdersModel.status == StatusOrderEnum.PENDING)
+            .where(OrdersModel.created_at <= hour_ago)
+        )
         expired = session.execute(stmt).scalars().all()
         for order in expired:
             order.status = StatusOrderEnum.CANCELED

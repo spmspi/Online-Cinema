@@ -27,6 +27,7 @@ class OrderListSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class OrderDetailSchema(BaseModel):
     id: int
     user_id: int

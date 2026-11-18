@@ -9,10 +9,13 @@ load_dotenv()
 def get_settings():
     return Settings()
 
+
 class BaseAppSettings(BaseSettings):
     pass
 
+
 LOGIN_TIME_DAYS: int = 7
+
 
 class Settings(BaseAppSettings):
     BASE_DIR: Path = Path(__file__).parent.parent
@@ -36,9 +39,13 @@ class Settings(BaseAppSettings):
     SECRET_KEY_ACCESS: str = os.getenv("SECRET_KEY_ACCESS", os.urandom(32))
     SECRET_KEY_REFRESH: str = os.getenv("SECRET_KEY_REFRESH", os.urandom(32))
     JWT_SIGNING_ALGORITHM: str = os.getenv("JWT_SIGNING_ALGORITHM", "HS256")
-    ACCESS_TOKEN_URL: str = os.getenv("ACCESS_TOKEN_URL", "http://127.0.0.1:8000/login/")
+    ACCESS_TOKEN_URL: str = os.getenv(
+        "ACCESS_TOKEN_URL", "http://127.0.0.1:8000/login/"
+    )
 
-    PATH_TO_EMAIL_TEMPLATES_DIR: str = str(BASE_DIR / "src" / "notifications" / "templates")
+    PATH_TO_EMAIL_TEMPLATES_DIR: str = str(
+        BASE_DIR / "src" / "notifications" / "templates"
+    )
     ACTIVATION_EMAIL_TEMPLATE_NAME: str = "activation_request.html"
     ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME: str = "activation_complete.html"
     PASSWORD_RESET_TEMPLATE_NAME: str = "password_reset_request.html"
@@ -54,7 +61,9 @@ class Settings(BaseAppSettings):
 
     STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
     STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "secret_key")
-    STRIPE_WEBHOOK_SECRET:str = os.getenv("STRIPE_WEBHOOK_SECRET", "secret_webhook_key")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv(
+        "STRIPE_WEBHOOK_SECRET", "secret_webhook_key"
+    )
 
     MONGO_DB: str = os.getenv("MONGO_DB", "cinema")
     MONGO_INITDB_ROOT_USERNAME: str = os.getenv("MONGO_INITDB_ROOT_USERNAME", "admin")

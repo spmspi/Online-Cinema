@@ -18,7 +18,6 @@ from src.schemas.comments import (
     SubCommetBaseSchema, CommentLikeRequestSchema, CommentLikeResponseSchema,
 )
 from src.database.models.comments import CommentModel, SubCommentModel, CommentLikeModel, SubCommentLikeModel
-from src.user_activity.manager import UserActivityWebSocketManager
 
 router = APIRouter(tags=["Comments"])
 
@@ -89,7 +88,6 @@ async def add_sub_comment(
     parent_comment: CommentModel = Depends(get_comment_or_404),
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
-    not_manager = Depends(UserActivityWebSocketManager),
 ):
     try:
         new_sub_comment = SubCommentModel(
@@ -101,15 +99,11 @@ async def add_sub_comment(
         db.add(new_sub_comment)
         await db.commit()
         await db.refresh(new_sub_comment)
-        await not_manager.send_personal_message(
-            message=f"A user: {current_user.id} replied to your comment: {comment.text}",
-            user_id=parent_comment.user_id,
-        )
         return ResponseSubCommentSchema(
             parent_comment=parent_comment, comments=new_sub_comment.text
         )
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"something went wrong {e}")
+    except Exception:
+        raise HTTPException(status_code=404, detail="something went wrong")
 
 
 @router.get("/movie_comments/{comment_id}/", response_model=GetSubCommentsResponseSchema)

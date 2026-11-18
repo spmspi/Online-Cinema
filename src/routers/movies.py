@@ -1,40 +1,35 @@
-from celery.worker.state import total_count
 from fastapi import APIRouter, Query, HTTPException, Depends
-from pydantic import BaseModel
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
-from sqlalchemy.exc import IntegrityError
 from typing import Optional
 
-from sqlalchemy.sql.functions import current_user
-from starlette import status
 
 from src.dependencies.sort import MovieSortParams
-from src.dependencies.sort import MovieSortEnum
-from src.database.models.order import OrdersModel, OrderItemModel, StatusOrderEnum
 from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
-from src.dependencies.user import get_user_group, get_current_user
-from src.dependencies.movies import get_movie_or_404, Pagination, search_movies, build_page_url, get_or_create, logic_like, search_favotite_movie
+from src.dependencies.user import get_current_user
+from src.dependencies.movies import (
+    get_movie_or_404,
+    Pagination,
+    search_movies,
+    build_page_url,
+    logic_like,
+    search_favorite_movie,
+)
 from src.database.engine import get_db
 from src.database.models.movies import (
     MovieModel,
-    CertificationModel,
     GenreModel,
-    StarModel,
-    DirectorModel,
     MovieRatingModel,
-    MovieLikeModel)
+    MovieLikeModel,
+)
 
 from src.schemas.movies import (
     MovieListResponseSchema,
     MovieListItemSchema,
     MovieDetailResponseSchema,
     MovieLikeRequestSchema,
-    MovieLikeResponseSchema,
-    MovieCreateRequestSchema,
-    MovieUpdateSchema,
     MovieRatingResponseSchema,
     MovieRatingRequestSchema,
     MovieLikeResponseSchema,
@@ -48,15 +43,16 @@ router = APIRouter(tags=["Movies"])
 async def get_movies_list(
     pagination: Pagination = Depends(),
     sort: MovieSortParams = Depends(),
-    base_query = Depends(search_movies),
-    search: Optional[str] = Query(None, description="Search by title, description, actor, or director"),
+    base_query=Depends(search_movies),
+    search: Optional[str] = Query(
+        None, description="Search by title, description, actor, or director"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     base_query = sort.sort(base_query)
     total_items = await pagination.get_total_items(db, base_query)
     if total_items == 0:
         raise HTTPException(status_code=404, detail="No movies found.")
-
 
     movies = await pagination.get_paginated_items(db, base_query)
 
@@ -69,8 +65,16 @@ async def get_movies_list(
 
     response = MovieListResponseSchema(
         movies=movie_list,
-        prev_page=build_page_url("movies", pagination.page - 1, pagination.limit, search) if pagination.page > 1 else None,
-        next_page=build_page_url("movies", pagination.page + 1, pagination.limit, search) if pagination.page < total_pages else None,
+        prev_page=(
+            build_page_url("movies", pagination.page - 1, pagination.limit, search)
+            if pagination.page > 1
+            else None
+        ),
+        next_page=(
+            build_page_url("movies", pagination.page + 1, pagination.limit, search)
+            if pagination.page < total_pages
+            else None
+        ),
         total_pages=total_pages,
         total_items=total_items,
     )
@@ -100,17 +104,16 @@ async def get_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
     return MovieDetailResponseSchema.model_validate(movie)
 
 
-
 @router.post("/movies/{movie_id}/rating", response_model=MovieRatingResponseSchema)
 async def add_movie_rating(
     data: MovieRatingRequestSchema,
     movie: MovieModel = Depends(get_movie_or_404),
     db: AsyncSession = Depends(get_db),
-    curret_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user),
 ):
 
     stmt = select(MovieRatingModel).filter(
-        MovieRatingModel.user_id == curret_user.id,
+        MovieRatingModel.user_id == current_user.id,
         MovieRatingModel.movie_id == movie.id,
     )
     result = await db.execute(stmt)
@@ -120,7 +123,7 @@ async def add_movie_rating(
     else:
         rating = MovieRatingModel(
             movie_id=movie.id,
-            user_id=curret_user.id,
+            user_id=current_user.id,
             score=data.score,
         )
         db.add(rating)
@@ -149,7 +152,7 @@ async def add_in_favorite_movie(
     )
     result = await db.execute(stmt)
     if movie in current_user.favorites:
-        raise HTTPException(status_code=400, detail="Movie already favorited")
+        raise HTTPException(status_code=400, detail="Movie already favorite")
 
     current_user.favorites.append(movie)
     await db.commit()
@@ -161,22 +164,23 @@ async def add_in_favorite_movie(
 )
 async def get_favorite_movies(
     current_user: UserModel = Depends(get_current_user),
-    base_query = Depends(search_favotite_movie),
+    base_query=Depends(search_favorite_movie),
     sort: MovieSortParams = Depends(),
     search: Optional[str] = Query(
-            None, description="Search by title, description, actor, or director"),
+        None, description="Search by title, description, actor, or director"
+    ),
     pagination: Pagination = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     base_query = sort.sort(base_query)
     total_items = await pagination.get_total_items(db, base_query)
-    total_pages = (total_items + pagination.limit - 1) // pagination.limit if total_items > 0 else 1
-
-    paginated_stmt = (
-        base_query
-        .limit(pagination.limit)
-        .offset(pagination.offset)
+    total_pages = (
+        (total_items + pagination.limit - 1) // pagination.limit
+        if total_items > 0
+        else 1
     )
+
+    paginated_stmt = base_query.limit(pagination.limit).offset(pagination.offset)
 
     result = await db.execute(paginated_stmt)
     movies = result.scalars().all()
@@ -185,13 +189,22 @@ async def get_favorite_movies(
 
     return GetFavoriteMoviesSchema(
         movies=movie_list,
-        prev_page=build_page_url("/movies/favorites/", pagination.page - 1, pagination.limit,
-                                 search) if pagination.page > 1 else None,
-        next_page=build_page_url("/movies/favorites/", pagination.page + 1, pagination.limit,
-                                 search) if pagination.page < total_pages else None,
+        prev_page=(
+            build_page_url(
+                "/movies/favorites/", pagination.page - 1, pagination.limit, search
+            )
+            if pagination.page > 1
+            else None
+        ),
+        next_page=(
+            build_page_url(
+                "/movies/favorites/", pagination.page + 1, pagination.limit, search
+            )
+            if pagination.page < total_pages
+            else None
+        ),
         total_pages=total_pages,
         total_items=total_items,
-
     )
 
 
@@ -228,7 +241,7 @@ async def add_movie_like(
         user=current_user,
         request_like=request_like.is_like,
         like_model=MovieLikeModel,
-        name_relation="movie_id"
+        name_relation="movie_id",
     )
 
     return MovieLikeResponseSchema(
@@ -237,9 +250,10 @@ async def add_movie_like(
         dislike=movie.dislikes_count,
     )
 
+
 @router.get("/movies/genres/")
 async def get_movie_genre(
-        db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(GenreModel).options(selectinload(GenreModel.movies))
     result = await db.execute(stmt)
@@ -250,4 +264,3 @@ async def get_movie_genre(
         genres_dict[genre.name] = len(genre.movies)
 
     return genres_dict
-

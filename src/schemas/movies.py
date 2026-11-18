@@ -1,7 +1,6 @@
-from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict
 
 
 class MovieListItemSchema(BaseModel):
@@ -110,6 +109,7 @@ class GetFavoriteMoviesSchema(BaseModel):
     next_page: Optional[str]
     total_pages: int
     total_items: int
+
 
 class MovieListSchema(BaseModel):
     id: int

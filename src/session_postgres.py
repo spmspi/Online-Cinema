@@ -9,14 +9,14 @@ import os
 from src.settings import get_settings
 from dotenv import load_dotenv
 
-
-
 load_dotenv()
 
 settings = get_settings()
 
-POSTGRESQL_DATABASE_URL = (f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@"
-                           f"{settings.POSTGRES_HOST}:{settings.POSTGRES_DB_PORT}/{settings.POSTGRES_DB}")
+POSTGRESQL_DATABASE_URL = (
+    f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@"
+    f"{settings.POSTGRES_HOST}:{settings.POSTGRES_DB_PORT}/{settings.POSTGRES_DB}"
+)
 postgresql_engine = create_async_engine(POSTGRESQL_DATABASE_URL, echo=False)
 AsyncPostgresqlSessionLocal = sessionmaker(  # type: ignore
     bind=postgresql_engine,
