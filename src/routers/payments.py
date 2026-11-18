@@ -29,21 +29,23 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 @router.get("/checkout/")
 async def create_checkout_session(
-        order: OrdersModel = Depends(pay_order),
-        current_user: UserModel = Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
-        ):
+    order: OrdersModel = Depends(pay_order),
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
 
     try:
         session = stripe.checkout.Session.create(
-            line_items=[{
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {"name": f"Order ID: {order.id}"},
-                    "unit_amount": int(order.total_amount * 100),
-                },
-                "quantity": 1,
-            }],
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {"name": f"Order ID: {order.id}"},
+                        "unit_amount": int(order.total_amount * 100),
+                    },
+                    "quantity": 1,
+                }
+            ],
             metadata={
                 "user_id": current_user.id,
                 "email": current_user.email,
@@ -51,7 +53,7 @@ async def create_checkout_session(
             },
             mode="payment",
             success_url=settings.BASE_URL + "/success?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url=settings.BASE_URL  + "/cancel",
+            cancel_url=settings.BASE_URL + "/cancel",
             customer_email=current_user.email,
         )
         return {"checkout_url": session.url}
@@ -60,15 +62,17 @@ async def create_checkout_session(
 
 
 @router.post("/webhook/")
-async def stripe_webhook(request: Request,
-                         db: AsyncSession = Depends(get_db)):
+async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     webhook_secret = settings.STRIPE_WEBHOOK_SECRET
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except stripe.error.SignatureVerificationError:
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"error": "Invalid signature"})
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Invalid signature"},
+        )
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
 
@@ -78,7 +82,11 @@ async def stripe_webhook(request: Request,
         user_id = metadata.get("user_id")
         order_id = metadata.get("order_id")
         if order_id and user_id:
-            stmt = select(OrdersModel).where(OrdersModel.id == int(order_id)).options(selectinload(OrdersModel.order_items))
+            stmt = (
+                select(OrdersModel)
+                .where(OrdersModel.id == int(order_id))
+                .options(selectinload(OrdersModel.order_items))
+            )
             result = await db.execute(stmt)
             order = result.scalar_one_or_none()
             if order:
@@ -107,9 +115,9 @@ async def stripe_webhook(request: Request,
 
 @router.get("/success/")
 async def stripe_success(
-        session_id: str,
-        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
-        db: AsyncSession = Depends(get_db),
+    session_id: str,
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
+    db: AsyncSession = Depends(get_db),
 ):
     try:
         session = stripe.checkout.Session.retrieve(session_id)
@@ -117,28 +125,36 @@ async def stripe_success(
         metadata = session_dict.get("metadata", {})
         order_id = metadata.get("order_id")
         user_email = metadata.get("email")
-        stmt = select(OrdersModel).where(OrdersModel.id == int(order_id)).options(
-            selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie)
+        stmt = (
+            select(OrdersModel)
+            .where(OrdersModel.id == int(order_id))
+            .options(
+                selectinload(OrdersModel.order_items).selectinload(OrderItemModel.movie)
+            )
         )
         res = await db.execute(stmt)
         order = res.scalar_one_or_none()
-        movie_list = [MovieListSchema.model_validate(item.movie) for item in order.order_items]
+        movie_list = [
+            MovieListSchema.model_validate(item.movie) for item in order.order_items
+        ]
         await email_sender.send_payment_successful_email(
-            email=user_email,
-            items=movie_list)
-        return {"status": "success",
-                "message": "payment successfully completed",
-                "stripe_session_id": session_id,
-                "user_email": session["customer_email"],
-                }
+            email=user_email, items=movie_list
+        )
+        return {
+            "status": "success",
+            "message": "payment successfully completed",
+            "stripe_session_id": session_id,
+            "user_email": session["customer_email"],
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/payments/", response_model=PaymentListsSchema)
 async def get_my_payments(
-        status: Optional[StatusPaymentsEnum] = None,
-        current_user: UserModel = Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
+    status: Optional[StatusPaymentsEnum] = None,
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(PaymentsModel).where(PaymentsModel.user_id == current_user.id)
     if status:
@@ -151,10 +167,11 @@ async def get_my_payments(
 
 
 @router.post(
-    "/{payment_id}/refund/",)
+    "/{payment_id}/refund/",
+)
 async def refund_payment(
-        payment_id: int,
-        db: AsyncSession = Depends(get_db),
+    payment_id: int,
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(PaymentsModel).where(PaymentsModel.id == payment_id)
     result = await db.execute(stmt)
@@ -163,9 +180,7 @@ async def refund_payment(
         raise HTTPException(status_code=404, detail="Payment not found")
     if payment.status == StatusPaymentsEnum.SUCCESSFUL:
         try:
-            refund = stripe.Refund.create(
-                payment_intent=payment.external_payment_id
-            )
+            refund = stripe.Refund.create(payment_intent=payment.external_payment_id)
             payment.status = StatusPaymentsEnum.REFUNDED
             order_stmt = select(OrdersModel).where(OrdersModel.id == payment.order_id)
             order_result = await db.execute(order_stmt)
@@ -173,9 +188,11 @@ async def refund_payment(
             if order:
                 order.status = StatusOrderEnum.CANCELED
             await db.commit()
-            return {"status": "success",
-                    "message": "a refund request has been submitted",
-                    "stripe_refund_id": refund.id}
+            return {
+                "status": "success",
+                "message": "a refund request has been submitted",
+                "stripe_refund_id": refund.id,
+            }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     else:

@@ -82,4 +82,3 @@ async def get_admin_user_group(
             detail="insufficient permissions for these actions",
         )
     return user
-

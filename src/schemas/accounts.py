@@ -1,23 +1,21 @@
-from typing import Text
-
 from pydantic import BaseModel, EmailStr, field_validator
 
 from src.validation import accounts as accounts_validators
 
 from enum import Enum
 
+
 class UserRoleEnum(str, Enum):
     ADMIN = "admin"
     USER = "user"
     MODERATOR = "moderator"
 
+
 class BaseEmailPasswordSchema(BaseModel):
     email: EmailStr
     password: str
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
 
     @field_validator("email")
     @classmethod
@@ -56,9 +54,7 @@ class UserRegistrationResponseSchema(BaseModel):
     id: int
     email: EmailStr
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
 
 
 class UserActivationRequestSchema(BaseModel):
@@ -78,8 +74,10 @@ class TokenRefreshResponseSchema(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
 class GetAccessTokenRequestSchema(BaseModel):
     email: EmailStr
+
 
 class GetAccessTokenResponseSchema(BaseModel):
     access_token: str
@@ -87,6 +85,7 @@ class GetAccessTokenResponseSchema(BaseModel):
 
 class ActivateAccountRequestSchema(BaseModel):
     email: EmailStr
+
 
 class ResetOldPasswordRequestSchema(BaseModel):
     old_password: str

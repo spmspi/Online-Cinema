@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,10 +14,14 @@ from src.database.models.cart import CartModel
 from src.dependencies.cart import get_cart_admin
 from src.schemas.cart import CartListResponseSchema
 from src.schemas.admin import AdminOrderDetailSchema
-from src.schemas.order import OrderDetailSchema, OrderSchema
+from src.schemas.order import OrderSchema
 from src.database.models.order import OrdersModel
 from src.database.models.accounts import UserModel, UserGroupModel
-from src.schemas.accounts import MessageResponseSchema, ActivateAccountRequestSchema, ChangeGroupSchema
+from src.schemas.accounts import (
+    MessageResponseSchema,
+    ActivateAccountRequestSchema,
+    ChangeGroupSchema,
+)
 from src.database.models.order import OrderItemModel, StatusOrderEnum
 from src.dependencies.user import get_admin_user_group
 from src.dependencies.movies import get_movie_or_404, get_or_create
@@ -27,20 +31,19 @@ from src.database.models.movies import (
     CertificationModel,
     GenreModel,
     StarModel,
-    DirectorModel)
+    DirectorModel,
+)
 
 from src.schemas.movies import (
     MovieDetailResponseSchema,
     MovieCreateRequestSchema,
-    MovieUpdateSchema, MovieListSchema,
+    MovieUpdateSchema,
+    MovieListSchema,
 )
 
 router = APIRouter(
-    prefix="/admin",
-    tags=["Admin Panel"],
-    dependencies=[Depends(get_admin_user_group)]
+    prefix="/admin", tags=["Admin Panel"], dependencies=[Depends(get_admin_user_group)]
 )
-
 
 
 @router.post("/movies/", response_model=MovieDetailResponseSchema)
@@ -65,11 +68,18 @@ async def create_movie(
         )
 
     try:
-        certification = await get_or_create(db, CertificationModel, movie_data.certification)
+        certification = await get_or_create(
+            db, CertificationModel, movie_data.certification
+        )
 
-        genres = [await get_or_create(db, GenreModel, name) for name in movie_data.genres]
+        genres = [
+            await get_or_create(db, GenreModel, name) for name in movie_data.genres
+        ]
         stars = [await get_or_create(db, StarModel, name) for name in movie_data.stars]
-        directors = [await get_or_create(db, DirectorModel, name) for name in movie_data.directors]
+        directors = [
+            await get_or_create(db, DirectorModel, name)
+            for name in movie_data.directors
+        ]
 
         movie = MovieModel(
             name=movie_data.name,
@@ -94,7 +104,6 @@ async def create_movie(
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"{e}")
-
 
 
 @router.delete("/movies/{movie_id}")
@@ -122,7 +131,7 @@ async def delete_movie(
         if order and order.status in (StatusOrderEnum.PENDING, StatusOrderEnum.PAID):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"The film cannot be deleted because it is part of an order with a status of '{order.status.name}'."
+                detail=f"The film cannot be deleted because it is part of an order with a status of '{order.status.name}'.",
             )
 
     await db.delete(movie)
@@ -151,14 +160,13 @@ async def update_movie(
     return {"detail": "Movie updated successfully."}
 
 
-
 @router.post(
     "/activate_account/",
     response_model=MessageResponseSchema,
 )
 async def activate_account(
-        email: ActivateAccountRequestSchema,
-        db: AsyncSession = Depends(get_db),
+    email: ActivateAccountRequestSchema,
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(UserModel).filter_by(email=email.email)
     result = await db.execute(stmt)
@@ -176,7 +184,6 @@ async def activate_account(
     user.is_active = True
     await db.commit()
     return MessageResponseSchema(message="Activated successfully.")
-
 
 
 @router.post(
@@ -222,12 +229,14 @@ async def group_change(
 
 @router.get("/cart/{user_id}", response_model=CartListResponseSchema)
 async def get_cart_for_admin(
-        user_id: int,
-        cart: CartModel = Depends(get_cart_admin),
-        current_user: UserModel = Depends(get_admin_user_group),
-        db: AsyncSession = Depends(get_db),
+    user_id: int,
+    cart: CartModel = Depends(get_cart_admin),
+    current_user: UserModel = Depends(get_admin_user_group),
+    db: AsyncSession = Depends(get_db),
 ):
-    movie_list = [MovieListSchema.model_validate(item.movie) for item in cart.cart_items]
+    movie_list = [
+        MovieListSchema.model_validate(item.movie) for item in cart.cart_items
+    ]
     return CartListResponseSchema(
         cart_id=cart.id,
         movies=movie_list,
@@ -268,8 +277,8 @@ async def get_orders_user(
 
 @router.get("/payments/", response_model=PaymentListsSchema)
 async def get_all_payments(
-        status: Optional[StatusPaymentsEnum] = None,
-        db: AsyncSession = Depends(get_db),
+    status: Optional[StatusPaymentsEnum] = None,
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(PaymentsModel)
     if status:
@@ -279,9 +288,3 @@ async def get_all_payments(
     payments = result.scalars().all()
     payments_list = [PaymentsSchema.model_validate(payment) for payment in payments]
     return PaymentListsSchema(payments=payments_list)
-
-
-
-
-
-

@@ -6,7 +6,12 @@ from sqlalchemy.orm import joinedload, selectinload
 from src.dependencies.comments import get_comment_or_404, get_sub_comment_or_404
 from src.database.models.accounts import UserModel
 from src.dependencies.user import get_current_user
-from src.dependencies.movies import get_movie_or_404, logic_like, Pagination, build_page_url
+from src.dependencies.movies import (
+    get_movie_or_404,
+    logic_like,
+    Pagination,
+    build_page_url,
+)
 from src.database.engine import get_db
 from src.database.models.movies import MovieModel
 from src.schemas.comments import (
@@ -15,9 +20,16 @@ from src.schemas.comments import (
     GetMovieCommentsResponseSchema,
     ResponseSubCommentSchema,
     GetSubCommentsResponseSchema,
-    SubCommetBaseSchema, CommentLikeRequestSchema, CommentLikeResponseSchema,
+    SubCommetBaseSchema,
+    CommentLikeRequestSchema,
+    CommentLikeResponseSchema,
 )
-from src.database.models.comments import CommentModel, SubCommentModel, CommentLikeModel, SubCommentLikeModel
+from src.database.models.comments import (
+    CommentModel,
+    SubCommentModel,
+    CommentLikeModel,
+    SubCommentLikeModel,
+)
 
 router = APIRouter(tags=["Comments"])
 
@@ -48,9 +60,7 @@ async def add_movie_comment(
         raise HTTPException(status_code=404, detail=f"something went wrong {e}")
 
 
-@router.get(
-    "/comments/{movie_id}/", response_model=GetMovieCommentsResponseSchema
-)
+@router.get("/comments/{movie_id}/", response_model=GetMovieCommentsResponseSchema)
 async def get_movie_comments(
     movie: MovieModel = Depends(get_movie_or_404),
     pagination: Pagination = Depends(),
@@ -71,8 +81,16 @@ async def get_movie_comments(
     total_pages = (total_items + pagination.limit - 1) // pagination.limit
     response = GetMovieCommentsResponseSchema(
         comments=comments_list,
-        prev_page=build_page_url("comments", pagination.page - 1, pagination.limit) if pagination.page > 1 else None,
-        next_page=build_page_url("comments", pagination.page + 1, pagination.limit) if pagination.page < total_pages else None,
+        prev_page=(
+            build_page_url("comments", pagination.page - 1, pagination.limit)
+            if pagination.page > 1
+            else None
+        ),
+        next_page=(
+            build_page_url("comments", pagination.page + 1, pagination.limit)
+            if pagination.page < total_pages
+            else None
+        ),
         total_pages=total_pages,
         total_items=total_items,
     )
@@ -80,9 +98,7 @@ async def get_movie_comments(
     return response
 
 
-@router.post(
-    "/movie_comments/{comment_id}/", response_model=ResponseSubCommentSchema
-)
+@router.post("/movie_comments/{comment_id}/", response_model=ResponseSubCommentSchema)
 async def add_sub_comment(
     comment: CommentRequestSchema,
     parent_comment: CommentModel = Depends(get_comment_or_404),
@@ -106,7 +122,9 @@ async def add_sub_comment(
         raise HTTPException(status_code=404, detail="something went wrong")
 
 
-@router.get("/movie_comments/{comment_id}/", response_model=GetSubCommentsResponseSchema)
+@router.get(
+    "/movie_comments/{comment_id}/", response_model=GetSubCommentsResponseSchema
+)
 async def get_sub_comment(
     comment_in_db: CommentModel = Depends(get_comment_or_404),
     pagination: Pagination = Depends(),
@@ -127,17 +145,29 @@ async def get_sub_comment(
         return GetSubCommentsResponseSchema(
             parent_comment=comment_in_db,
             comments=comments_list,
-            prev_page=build_page_url(f"/movie_comments/{comment_in_db.id}/", pagination.page - 1,
-                                     pagination.limit) if pagination.page > 1 else None,
-            next_page=build_page_url(f"/movie_comments/{comment_in_db.id}/", pagination.page + 1,
-                                     pagination.limit) if pagination.page < total_pages else None,
+            prev_page=(
+                build_page_url(
+                    f"/movie_comments/{comment_in_db.id}/",
+                    pagination.page - 1,
+                    pagination.limit,
+                )
+                if pagination.page > 1
+                else None
+            ),
+            next_page=(
+                build_page_url(
+                    f"/movie_comments/{comment_in_db.id}/",
+                    pagination.page + 1,
+                    pagination.limit,
+                )
+                if pagination.page < total_pages
+                else None
+            ),
             total_pages=total_pages,
             total_items=total_items,
-
         )
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"something went wrong {e}")
-
 
 
 @router.post("/{comment_id}/like", response_model=CommentLikeResponseSchema)
@@ -153,7 +183,7 @@ async def add_comment_like(
         user=current_user,
         request_like=request_like.is_like,
         like_model=CommentLikeModel,
-        name_relation="comment_id"
+        name_relation="comment_id",
     )
 
     return CommentLikeResponseSchema(
@@ -176,7 +206,7 @@ async def add_sub_comment_like(
         user=current_user,
         request_like=request_like.is_like,
         like_model=SubCommentLikeModel,
-        name_relation="sub_comment_id"
+        name_relation="sub_comment_id",
     )
 
     return CommentLikeResponseSchema(
@@ -184,6 +214,3 @@ async def add_sub_comment_like(
         like=new_sub_like.likes_count,
         dislike=new_sub_like.dislikes_count,
     )
-
-
-

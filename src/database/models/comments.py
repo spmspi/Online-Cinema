@@ -1,6 +1,14 @@
 from datetime import datetime
 
-from sqlalchemy import Integer, ForeignKey, Text, DateTime, func, Boolean, UniqueConstraint
+from sqlalchemy import (
+    Integer,
+    ForeignKey,
+    Text,
+    DateTime,
+    func,
+    Boolean,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from .base import Base
 
@@ -61,7 +69,9 @@ class SubCommentModel(Base):
     )
     user = relationship("UserModel")
     likes: Mapped[list["SubCommentLikeModel"]] = relationship(
-        "SubCommentLikeModel", back_populates="sub_comment", cascade="all, delete-orphan"
+        "SubCommentLikeModel",
+        back_populates="sub_comment",
+        cascade="all, delete-orphan",
     )
 
     @classmethod
@@ -82,11 +92,14 @@ class CommentLikeModel(Base):
         Integer, ForeignKey("movies_comments.id", ondelete="CASCADE"), nullable=False
     )
 
-    comment: Mapped["CommentModel"] = relationship("CommentModel", back_populates="likes")
+    comment: Mapped["CommentModel"] = relationship(
+        "CommentModel", back_populates="likes"
+    )
 
     __table_args__ = (
         UniqueConstraint("user_id", "comment_id", name="user_comment_like_unique"),
     )
+
 
 class SubCommentLikeModel(Base):
     __tablename__ = "sub_comment_likes"
@@ -98,11 +111,17 @@ class SubCommentLikeModel(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     sub_comment_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("movies_sub_comments.id", ondelete="CASCADE"), nullable=False
+        Integer,
+        ForeignKey("movies_sub_comments.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
-    sub_comment: Mapped["SubCommentModel"] = relationship("SubCommentModel", back_populates="likes")
+    sub_comment: Mapped["SubCommentModel"] = relationship(
+        "SubCommentModel", back_populates="likes"
+    )
 
     __table_args__ = (
-        UniqueConstraint("user_id", "sub_comment_id", name="user_sub_comment_like_unique"),
+        UniqueConstraint(
+            "user_id", "sub_comment_id", name="user_sub_comment_like_unique"
+        ),
     )

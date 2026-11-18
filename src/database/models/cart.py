@@ -9,14 +9,13 @@ from src.database.models.base import Base
 
 
 class CartModel(Base):
-    __tablename__ = 'cart'
+    __tablename__ = "cart"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        unique=True)
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     user: Mapped[UserModel] = relationship("UserModel", back_populates="cart")
 
     cart_items: Mapped[list["CartItemModel"]] = relationship(
@@ -29,10 +28,14 @@ class CartModel(Base):
 
 
 class CartItemModel(Base):
-    __tablename__ = 'cart_item'
+    __tablename__ = "cart_item"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    cart_id: Mapped[int] = mapped_column(ForeignKey("cart.id", ondelete="CASCADE"),)
-    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id", ondelete="CASCADE"),)
+    cart_id: Mapped[int] = mapped_column(
+        ForeignKey("cart.id", ondelete="CASCADE"),
+    )
+    movie_id: Mapped[int] = mapped_column(
+        ForeignKey("movies.id", ondelete="CASCADE"),
+    )
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

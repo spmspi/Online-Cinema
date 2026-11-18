@@ -1,10 +1,9 @@
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import Depends, HTTPException, Query
 
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.testing.pickleable import User
 
 from src.dependencies.user import get_current_user
 from src.database.models.accounts import UserModel
@@ -25,17 +24,17 @@ async def get_movie_or_404(
 
 
 class Pagination:
-    def __init__(self,
-                 page: int = Query(1, ge=1),
-                 limit: int = Query(10, ge=1, le=20),
-                 ):
+    def __init__(
+        self,
+        page: int = Query(1, ge=1),
+        limit: int = Query(10, ge=1, le=20),
+    ):
         self.page = page
         self.limit = limit
 
     @property
     def offset(self) -> int:
         return (self.page - 1) * self.limit
-
 
     async def get_total_items(self, db: AsyncSession, base_query) -> int:
         count_stmt = select(func.count()).select_from(base_query.subquery())
@@ -51,7 +50,7 @@ class Pagination:
 
 
 async def search_movies(
-        search: Optional[str] = Query(
+    search: Optional[str] = Query(
         None, description="Search by title, description, actor, or director"
     ),
     db: AsyncSession = Depends(get_db),
@@ -69,15 +68,15 @@ async def search_movies(
     return base_query
 
 
-async def search_favotite_movie(
-        search: Optional[str] = Query(
-            None, description="Search by title, description, actor, or director"),
-        db: AsyncSession = Depends(get_db),
-        user: UserModel = Depends(get_current_user) ):
+async def search_favorite_movie(
+    search: Optional[str] = Query(
+        None, description="Search by title, description, actor, or director"
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: UserModel = Depends(get_current_user),
+):
     base_query = (
-        select(MovieModel)
-        .join(UserModel.favorites)
-        .where(UserModel.id == user.id)
+        select(MovieModel).join(UserModel.favorites).where(UserModel.id == user.id)
     )
 
     if search:
@@ -92,7 +91,9 @@ async def search_favotite_movie(
     return base_query
 
 
-def build_page_url(base_page: str, target_page: int, limit: int, search: Optional[str] = None) -> str:
+def build_page_url(
+    base_page: str, target_page: int, limit: int, search: Optional[str] = None
+) -> str:
     url = f"/{base_page}/?page={target_page}&limit={limit}"
     if search:
         url += f"&search={search}"
@@ -111,17 +112,18 @@ async def get_or_create(db: AsyncSession, model, name: str):
 
     return instance
 
+
 async def logic_like(
-        db: AsyncSession,
-        model_in_db,
-        user,
-        request_like,
-        like_model,
-        name_relation,
+    db: AsyncSession,
+    model_in_db,
+    user,
+    request_like,
+    like_model,
+    name_relation,
 ):
     stmt = select(like_model).filter(
         getattr(like_model, "user_id") == user.id,
-        getattr(like_model, name_relation) == model_in_db.id
+        getattr(like_model, name_relation) == model_in_db.id,
     )
     result = await db.execute(stmt)
     like_in_db = result.scalar_one_or_none()
@@ -142,11 +144,13 @@ async def logic_like(
                 model_in_db.likes_count -= 1
             await db.commit()
     else:
-        new_like = like_model(**{
-            name_relation:model_in_db.id,
-            "user_id":user.id,
-            "is_like":request_like,
-        })
+        new_like = like_model(
+            **{
+                name_relation: model_in_db.id,
+                "user_id": user.id,
+                "is_like": request_like,
+            }
+        )
         db.add(new_like)
         if request_like:
             model_in_db.likes_count += 1

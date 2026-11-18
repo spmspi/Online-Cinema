@@ -15,11 +15,13 @@ class MovieSortEnum(StrEnum):
     META_SCORE_DESC = "meta_score_desc"
 
 
-
 class MovieSortParams:
-    def __init__(self,
-                 sort_by: Optional[MovieSortEnum] = Query(None, description="Movie to sort by price, date, meta_score"),
-                 ):
+    def __init__(
+        self,
+        sort_by: Optional[MovieSortEnum] = Query(
+            None, description="Movie to sort by price, date, meta_score"
+        ),
+    ):
         self.sort_by = sort_by
 
     def sort(self, stmt):
@@ -36,5 +38,3 @@ class MovieSortParams:
         elif self.sort_by == MovieSortEnum.META_SCORE_DESC:
             stmt = stmt.order_by(MovieModel.meta_score.desc())
         return stmt
-
-

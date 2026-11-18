@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict
 
-from src.schemas.order import OrderDetailSchema, OrderSchema
+from src.schemas.order import OrderSchema
 
 
 class AdminOrderDetailSchema(BaseModel):
@@ -10,5 +10,3 @@ class AdminOrderDetailSchema(BaseModel):
     orders: List[OrderSchema]
 
     model_config = ConfigDict(from_attributes=True)
-
-

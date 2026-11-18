@@ -15,9 +15,8 @@ class CommentResponseSchema(CommentRequestSchema):
     movie_id: int
     user_id: int
     created_at: datetime
-    likes_count: int
-    dislikes_count: int
-
+    likes_count: int = 0
+    dislikes_count: int = 0
 
     @field_validator("created_at")
     def read_created_at(cls, value: datetime) -> str:
@@ -66,8 +65,6 @@ class GetSubCommentsResponseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-
-
 class CommentLikeRequestSchema(BaseModel):
     is_like: bool
 
@@ -76,4 +73,3 @@ class CommentLikeResponseSchema(BaseModel):
     comment_id: int
     like: int
     dislike: int
-

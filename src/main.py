@@ -9,11 +9,7 @@ from src.routers.order import router as orders_router
 from src.routers.admin import router as admin_router
 from src.routers.payments import router as payments_router
 
-app = FastAPI(
-    title="Cinema",
-    description="Description of project",
-    lifespan=lifespan
-)
+app = FastAPI(title="Cinema", description="Description of project", lifespan=lifespan)
 
 
 app.include_router(movies_router)

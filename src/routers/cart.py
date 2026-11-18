@@ -1,24 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-from sqlalchemy.sql.functions import current_user
 from starlette import status
-from sqlalchemy import select, func, or_, delete
+from sqlalchemy import select
 
-from src.database.models.order import OrdersModel, OrderItemModel
-from src.database import models
+from src.database.models.order import OrdersModel
 from src.database.models.order import OrderItemModel, StatusOrderEnum
 from src.dependencies.order import clear_cart_db
 from src.schemas.movies import MovieListSchema
 from src.schemas.accounts import MessageResponseSchema
-from src.database.models.accounts import UserModel
-from src.dependencies.user import get_current_user, get_admin_user_group
 from src.database.models.cart import CartItemModel
 from src.database.models.movies import MovieModel
 from src.dependencies.movies import get_movie_or_404
-from src.dependencies.cart import get_cart_in_current_user, get_cart_admin
-from src.schemas.cart import CartBaseSchema, CartListResponseSchema
+from src.dependencies.cart import get_cart_in_current_user
+from src.schemas.cart import CartListResponseSchema
 from src.database.engine import get_db
 from src.database.models.cart import CartModel
 
@@ -30,12 +25,13 @@ async def get_cart(
     cart: CartModel = Depends(get_cart_in_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    movie_list = [MovieListSchema.model_validate(item.movie) for item in cart.cart_items]
+    movie_list = [
+        MovieListSchema.model_validate(item.movie) for item in cart.cart_items
+    ]
     return CartListResponseSchema(
         cart_id=cart.id,
         movies=movie_list,
     )
-
 
 
 @router.post("/cart/{movie_id}", response_model=MessageResponseSchema)
@@ -44,10 +40,14 @@ async def add_movie_in_cart(
     movie: MovieModel = Depends(get_movie_or_404),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(OrderItemModel).join(OrderItemModel.order).where(
-        OrderItemModel.movie_id == movie.id,
-        OrdersModel.user_id == cart.user_id,
-        OrdersModel.status == StatusOrderEnum.PAID,
+    stmt = (
+        select(OrderItemModel)
+        .join(OrderItemModel.order)
+        .where(
+            OrderItemModel.movie_id == movie.id,
+            OrdersModel.user_id == cart.user_id,
+            OrdersModel.status == StatusOrderEnum.PAID,
+        )
     )
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
@@ -71,13 +71,12 @@ async def add_movie_in_cart(
 
 @router.delete("/cart/{movie_id}", response_model=MessageResponseSchema)
 async def remove_movie_in_cart(
-        cart: CartModel = Depends(get_cart_in_current_user),
-        movie: MovieModel = Depends(get_movie_or_404),
-        db: AsyncSession = Depends(get_db),
+    cart: CartModel = Depends(get_cart_in_current_user),
+    movie: MovieModel = Depends(get_movie_or_404),
+    db: AsyncSession = Depends(get_db),
 ):
     stmt = select(CartItemModel).where(
-        CartItemModel.cart_id == cart.id,
-        CartItemModel.movie_id == movie.id
+        CartItemModel.cart_id == cart.id, CartItemModel.movie_id == movie.id
     )
     result = await db.execute(stmt)
     cart_item = result.scalar_one_or_none()
@@ -93,8 +92,8 @@ async def remove_movie_in_cart(
 
 @router.delete("/cart/", response_model=MessageResponseSchema)
 async def clear_cart(
-        cart: CartModel = Depends(get_cart_in_current_user),
-        db: AsyncSession = Depends(get_db),
+    cart: CartModel = Depends(get_cart_in_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     await clear_cart_db(cart, db)
     return {"message": "item removed from cart"}
