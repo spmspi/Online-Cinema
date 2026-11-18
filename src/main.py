@@ -8,6 +8,7 @@ from src.routers.cart import router as cart_router
 from src.routers.order import router as orders_router
 from src.routers.admin import router as admin_router
 from src.routers.payments import router as payments_router
+from src.routers.activities import users_activity_router
 
 app = FastAPI(
     title="Cinema",
@@ -24,3 +25,4 @@ app.include_router(cart_router)
 app.include_router(orders_router)
 app.include_router(admin_router)
 app.include_router(payments_router)
+app.include_router(users_activity_router)

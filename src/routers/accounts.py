@@ -36,6 +36,9 @@ from src.database.models.accounts import ActivationTokenModel
 from src.security.interface_token import JWTAuthManagerInterface
 from src.dependencies.service import get_accounts_email_notificator
 from src.notifications.interfaces import EmailSenderInterface
+from src.dependencies.activity import get_user_activity_repository
+from src.user_activity.interfaces import UserActivityRepoInterface
+from src.schemas.user_activity import UserBaseDTO
 
 router = APIRouter(tags=["Accounts"])
 
@@ -105,6 +108,7 @@ async def login_user(
     login_data: UserLoginRequestSchema,
     db: AsyncSession = Depends(get_db),
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
+    activity_repo: UserActivityRepoInterface = Depends(get_user_activity_repository),
 ) -> UserLoginResponseSchema:
 
     stmt = select(UserModel).filter_by(email=login_data.email)
@@ -122,6 +126,8 @@ async def login_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is not activated.",
         )
+
+    await activity_repo.create_user_activity(UserBaseDTO.model_validate(user))
 
     jwt_refresh_token = jwt_manager.create_refresh_token({"user_id": user.id})
 

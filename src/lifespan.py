@@ -4,7 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 import random
+from pymongo import AsyncMongoClient
 
+from src.settings import get_settings
+from src.user_activity.manager import UserActivityWebSocketManager
 from src.database.models.movies import (
     MovieModel,
     CertificationModel,
@@ -144,11 +147,17 @@ async def init_test_movies(session: AsyncSession):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings = get_settings()
+    app.state.mongo_client = AsyncMongoClient(settings.ME_CONFIG_MONGODB_URL)
+    app.state.ws_manager = UserActivityWebSocketManager()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await init_default_groups()
     await init_test_movies(AsyncPostgresqlSessionLocal())
+
     yield
+
+    await app.state.mongo_client.close()
 
 
 app = FastAPI(lifespan=lifespan)

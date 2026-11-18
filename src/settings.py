@@ -56,6 +56,15 @@ class Settings(BaseAppSettings):
     STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "secret_key")
     STRIPE_WEBHOOK_SECRET:str = os.getenv("STRIPE_WEBHOOK_SECRET", "secret_webhook_key")
 
+    MONGO_DB: str = os.getenv("MONGO_DB", "cinema")
+    MONGO_INITDB_ROOT_USERNAME: str = os.getenv("MONGO_INITDB_ROOT_USERNAME", "admin")
+    MONGO_INITDB_ROOT_PASSWORD: str = os.getenv("MONGO_INITDB_ROOT_PASSWORD", "some_password")
+    ME_CONFIG_MONGODB_ADMINUSERNAME: str = os.getenv("ME_CONFIG_MONGODB_ADMINUSERNAME", "admin")
+    ME_CONFIG_MONGODB_ADMINPASSWORD: str = os.getenv("ME_CONFIG_MONGODB_ADMINPASSWORD", "some_password")
+    ME_CONFIG_MONGODB_URL: str = os.getenv("ME_CONFIG_MONGODB_URL", "mongodb://admin:some_password@mongodb:27017/")
+    ME_CONFIG_BASICAUTH_USERNAME: str = os.getenv("ME_CONFIG_BASICAUTH_USERNAME", "admin")
+    ME_CONFIG_BASICAUTH_PASSWORD: str = os.getenv("ME_CONFIG_BASICAUTH_PASSWORD", "some_password")
+
     @property
     def S3_STORAGE_ENDPOINT(self) -> str:
         return f"http://{self.S3_STORAGE_HOST}:{self.S3_STORAGE_PORT}"

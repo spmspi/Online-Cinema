@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, select
 
-from database.models.payments import PaymentsModel
+from src.database.models.payments import PaymentsModel
 from src.database.models.accounts import UserModel
 from src.database.models.cart import CartModel
 from src.database.models.movies import MovieModel

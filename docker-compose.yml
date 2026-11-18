@@ -95,6 +95,33 @@ services:
     networks:
       - cinema_network
 
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+    networks:
+      - cinema_network
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8081:8081"
+    networks:
+      - cinema_network
+
   celery_worker:
     build: .
     container_name: cinema_celery_worker
@@ -141,7 +168,11 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
   minio_data:
+    driver: local
+  mongo_data:
+    driver: local
 
 networks:
   cinema_network:

@@ -29,7 +29,9 @@ dependencies = [
     "redis (>=8.1.0,<9.0.0)",
     "psycopg[binary] (>=3.0.0)",
     "flower (>=2.2.0,<3.0.0)",
-    "stripe (>=17.0.0,<18.0.0)"
+    "stripe (>=17.0.0,<18.0.0)",
+    "pymongo (>=4.20.0,<5.0.0)",
+    "websockets (>=17.4,<18.0)"
 ]
 
 

@@ -15,8 +15,8 @@ class CommentResponseSchema(CommentRequestSchema):
     movie_id: int
     user_id: int
     created_at: datetime
-    likes_count: int
-    dislikes_count: int
+    likes_count: int = 0
+    dislikes_count: int = 0
 
 
     @field_validator("created_at")
