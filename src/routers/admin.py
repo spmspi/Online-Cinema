@@ -25,7 +25,7 @@ from src.schemas.accounts import (
 from src.database.models.order import OrderItemModel, StatusOrderEnum
 from src.dependencies.user import get_admin_user_group
 from src.dependencies.movies import get_movie_or_404, get_or_create
-from src.database.engine import get_db
+from src.database import get_db
 from src.database.models.movies import (
     MovieModel,
     CertificationModel,

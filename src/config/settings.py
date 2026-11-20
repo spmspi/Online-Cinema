@@ -1,4 +1,6 @@
 import os
+from typing import Any
+
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from pathlib import Path
@@ -6,27 +8,10 @@ from pathlib import Path
 load_dotenv()
 
 
-def get_settings():
-    return Settings()
-
-
 class BaseAppSettings(BaseSettings):
-    pass
-
-
-LOGIN_TIME_DAYS: int = 7
-
-
-class Settings(BaseAppSettings):
     BASE_DIR: Path = Path(__file__).parent.parent
-    PATH_TO_DB: str = str(BASE_DIR / "database" / "source" / "theater.db")
+    PATH_TO_DB: str = str(BASE_DIR / "database" / "source" / "cinema.db")
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
-
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "test_user")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "test_password")
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "test_host")
-    POSTGRES_DB_PORT: int = int(os.getenv("POSTGRES_DB_PORT", 5432))
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "test_db")
 
     S3_STORAGE_HOST: str = os.getenv("MINIO_HOST", "minio-cinema")
     S3_STORAGE_PORT: int = os.getenv("MINIO_PORT", 9000)
@@ -36,15 +21,8 @@ class Settings(BaseAppSettings):
 
     LOGIN_TIME_DAYS: int = 7
 
-    SECRET_KEY_ACCESS: str = os.getenv("SECRET_KEY_ACCESS", os.urandom(32))
-    SECRET_KEY_REFRESH: str = os.getenv("SECRET_KEY_REFRESH", os.urandom(32))
-    JWT_SIGNING_ALGORITHM: str = os.getenv("JWT_SIGNING_ALGORITHM", "HS256")
-    ACCESS_TOKEN_URL: str = os.getenv(
-        "ACCESS_TOKEN_URL", "http://127.0.0.1:8000/login/"
-    )
-
     PATH_TO_EMAIL_TEMPLATES_DIR: str = str(
-        BASE_DIR / "src" / "notifications" / "templates"
+        BASE_DIR / "notifications" / "templates"
     )
     ACTIVATION_EMAIL_TEMPLATE_NAME: str = "activation_request.html"
     ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME: str = "activation_complete.html"
@@ -59,12 +37,6 @@ class Settings(BaseAppSettings):
     EMAIL_USE_TLS: bool = os.getenv("EMAIL_USE_TLS", "False").lower() == "true"
     MAILHOG_API_PORT: int = os.getenv("MAILHOG_API_PORT", 8025)
 
-    STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
-    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "secret_key")
-    STRIPE_WEBHOOK_SECRET: str = os.getenv(
-        "STRIPE_WEBHOOK_SECRET", "secret_webhook_key"
-    )
-
     MONGO_DB: str = os.getenv("MONGO_DB", "cinema")
     MONGO_INITDB_ROOT_USERNAME: str = os.getenv("MONGO_INITDB_ROOT_USERNAME", "admin")
     MONGO_INITDB_ROOT_PASSWORD: str = os.getenv("MONGO_INITDB_ROOT_PASSWORD", "some_password")
@@ -74,6 +46,45 @@ class Settings(BaseAppSettings):
     ME_CONFIG_BASICAUTH_USERNAME: str = os.getenv("ME_CONFIG_BASICAUTH_USERNAME", "admin")
     ME_CONFIG_BASICAUTH_PASSWORD: str = os.getenv("ME_CONFIG_BASICAUTH_PASSWORD", "some_password")
 
+
+
+
+class Settings(BaseAppSettings):
+
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "test_user")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "test_password")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "test_host")
+    POSTGRES_DB_PORT: int = int(os.getenv("POSTGRES_DB_PORT", 5432))
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "test_db")
+
+    SECRET_KEY_ACCESS: str = os.getenv("SECRET_KEY_ACCESS", os.urandom(32))
+    SECRET_KEY_REFRESH: str = os.getenv("SECRET_KEY_REFRESH", os.urandom(32))
+    JWT_SIGNING_ALGORITHM: str = os.getenv("JWT_SIGNING_ALGORITHM", "HS256")
+    ACCESS_TOKEN_URL: str = os.getenv(
+        "ACCESS_TOKEN_URL", "http://127.0.0.1:8000/login/"
+    )
+
+    STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "secret_key")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv(
+        "STRIPE_WEBHOOK_SECRET", "secret_webhook_key"
+    )
+
     @property
     def S3_STORAGE_ENDPOINT(self) -> str:
         return f"http://{self.S3_STORAGE_HOST}:{self.S3_STORAGE_PORT}"
+
+
+
+class TestingSettings(BaseAppSettings):
+    SECRET_KEY_ACCESS: str = "SECRET_KEY_ACCESS"
+    SECRET_KEY_REFRESH: str = "SECRET_KEY_REFRESH"
+    ACCESS_TOKEN_URL: str = os.getenv(
+        "ACCESS_TOKEN_URL", "http://127.0.0.1:8000/login/"
+    )
+    JWT_SIGNING_ALGORITHM: str = "HS256"
+    STRIPE_SECRET_KEY: str = "sk_test_dummy_key_for_tests"
+    MONGO_DB: str = "test_movies"
+
+    def model_post_init(self, __context: dict[str, Any] | None = None) -> None:
+        object.__setattr__(self, 'PATH_TO_DB', ":memory:")

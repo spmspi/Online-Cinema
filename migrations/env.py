@@ -9,7 +9,7 @@ from src.database.models import accounts, movies  # noqa: F401
 from alembic import context
 
 from src.database.models.base import Base
-from src.session_postgres import sync_database_url
+from database.session_postgres import sync_database_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

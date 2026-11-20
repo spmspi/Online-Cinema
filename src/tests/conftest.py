@@ -1,0 +1,263 @@
+import pytest_asyncio
+from sqlalchemy import insert, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import AsyncClient, ASGITransport
+
+from src.lifespan import init_default_groups
+from src.security.interface_token import JWTAuthManagerInterface
+from src.security.token_manager import JWTAuthManager
+from src.config.dependencies import get_accounts_email_notificator, get_s3_storage_client, get_settings
+from src.dependencies.activity import get_user_activity_repository
+from src.tests.doubles.fakes.storage import FakeS3Storage
+from src.tests.doubles.stubs.emails import StubEmailSender
+from src.main import app
+from src.tests.doubles.fakes.activity import FakeUserActivityRepo
+from src.database.session_sqlite import get_sqlite_db_contextmanager
+from src.database import (
+    reset_database,
+    get_db_contextmanager,
+    UserGroupEnum,
+    UserGroupModel
+)
+from storage.s3 import S3StorageClient
+
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def _app_lifespan():
+    """
+    Run the app's lifespan (startup/shutdown) exactly once for the whole
+    test session, so app.state.mongo_client stays alive and shared between
+    the `client` and `e2e_client` fixtures.
+    """
+    async with app.router.lifespan_context(app):
+        yield
+
+
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def reset_db(request):
+    """
+    Reset the SQLite database before each test function, except for tests marked with 'e2e'.
+
+    By default, this fixture ensures that the database is cleared and recreated before every
+    test function to maintain test isolation. However, if the test is marked with 'e2e',
+    the database reset is skipped to allow preserving state between end-to-end tests.
+    """
+    if "e2e" in request.keywords:
+        yield
+    else:
+        await reset_database()
+        async with get_db_contextmanager() as session:
+            await init_default_groups(session)
+        yield
+
+
+@pytest_asyncio.fixture(scope="session")
+async def reset_db_once_for_e2e(request):
+    """
+    Reset the database once for end-to-end tests.
+
+    This fixture is intended to be used for end-to-end tests at the session scope,
+    ensuring the database is reset before running E2E tests.
+    """
+    await reset_database()
+
+
+@pytest_asyncio.fixture(scope="session")
+async def settings():
+    """
+    Provide application settings.
+
+    This fixture returns the application settings by calling get_settings().
+    """
+    return get_settings()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def email_sender_stub():
+    """
+    Provide a stub implementation of the email sender.
+
+    This fixture returns an instance of StubEmailSender for testing purposes.
+    """
+    return StubEmailSender()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def s3_storage_fake():
+    """
+    Provide a fake S3 storage client.
+
+    This fixture returns an instance of FakeS3Storage for testing purposes.
+    """
+    return FakeS3Storage()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def user_activity_repo_fake():
+    """
+    This fixture returns an instance of FakeUserActivityRepo for testing purposes.
+    """
+    return FakeUserActivityRepo()
+
+
+@pytest_asyncio.fixture(scope="session")
+async def s3_client(settings):
+    """
+    Provide an S3 storage client.
+
+    This fixture returns an instance of S3StorageClient configured with the application settings.
+    """
+    return S3StorageClient(
+        endpoint_url=settings.S3_STORAGE_ENDPOINT,
+        access_key=settings.S3_STORAGE_ACCESS_KEY,
+        secret_key=settings.S3_STORAGE_SECRET_KEY,
+        bucket_name=settings.S3_BUCKET_NAME
+    )
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client(email_sender_stub, s3_storage_fake, user_activity_repo_fake):
+    """
+    Provide an asynchronous HTTP client for testing.
+
+    Overrides the dependencies for email sender and S3 storage with test doubles.
+    """
+    app.dependency_overrides[get_accounts_email_notificator] = lambda: email_sender_stub
+    app.dependency_overrides[get_s3_storage_client] = lambda: s3_storage_fake
+    app.dependency_overrides[get_user_activity_repository] = lambda: user_activity_repo_fake
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as async_client:
+        yield async_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(scope="session")
+async def e2e_client():
+    """
+    Provide an asynchronous HTTP client for end-to-end tests.
+
+    This client is available at the session scope.
+    """
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as async_client:
+        yield async_client
+
+
+@pytest_asyncio.fixture(scope="function")
+async def db_session():
+    """
+    Provide an async database session for database interactions.
+
+    This fixture yields an async session using `get_db_contextmanager`, ensuring that the session
+    is properly closed after each test.
+    """
+    async with get_db_contextmanager() as session:
+        yield session
+
+
+@pytest_asyncio.fixture(scope="session")
+async def e2e_db_session():
+    """
+    Provide an async database session for end-to-end tests.
+
+    This fixture yields an async session using `get_db_contextmanager` at the session scope,
+    ensuring that the same session is used throughout the E2E test suite.
+    Note: Using a session-scoped DB session in async tests may lead to shared state between tests,
+    so use this fixture with caution if tests run concurrently.
+    """
+    async with get_db_contextmanager() as session:
+        yield session
+
+
+@pytest_asyncio.fixture(scope="function")
+async def jwt_manager() -> JWTAuthManagerInterface:
+    """
+    Asynchronous fixture to create a JWT authentication manager instance.
+
+    This fixture retrieves the application settings via `get_settings()` and uses them to
+    instantiate a `JWTAuthManager`. The manager is configured with the secret keys for
+    access and refresh tokens, as well as the JWT signing algorithm specified in the settings.
+
+    Returns:
+        JWTAuthManagerInterface: An instance of JWTAuthManager configured with the appropriate
+        secret keys and algorithm.
+    """
+    settings = get_settings()
+    return JWTAuthManager(
+        secret_key_access=settings.SECRET_KEY_ACCESS,
+        secret_key_refresh=settings.SECRET_KEY_REFRESH,
+        algorithm=settings.JWT_SIGNING_ALGORITHM
+    )
+
+
+@pytest_asyncio.fixture(scope="function")
+async def seed_user_groups(db_session: AsyncSession):
+    """
+    Asynchronously seed the UserGroupModel table with default user groups.
+
+    This fixture inserts all user groups defined in UserGroupEnum into the database and commits the transaction.
+    It then yields the asynchronous database session for further testing.
+    """
+    result = await db_session.execute(select(UserGroupModel.name))
+    existing_names = list(result.scalars().all())
+
+    missing_groups = [
+        {"name": group.value}
+        for group in UserGroupEnum
+        if group.value not in existing_names
+    ]
+
+    if missing_groups:
+        await db_session.execute(insert(UserGroupModel).values(missing_groups))
+
+    await db_session.commit()
+    yield db_session
+
+
+
+
+@pytest_asyncio.fixture(scope="session")
+async def mongo_db(_app_lifespan):
+    """
+    Provide the MongoDB database created by the application lifespan.
+
+    The database is resolved from the very same ``AsyncMongoClient`` that the
+    app stored on ``app.state`` during startup, rather than from a freshly
+    built client. This matters because ``AsyncMongoClient`` binds itself to the
+    event loop it was first used on: a separate client created inside a test
+    would end up on a different loop and raise
+    ``RuntimeError: Cannot use AsyncMongoClient in different event loop``.
+
+    Depends on ``_app_lifespan`` to guarantee that startup has already run and
+    ``app.state.mongo_client`` exists by the time this fixture is resolved.
+
+    Args:
+        _app_lifespan (Any): Session-scoped fixture that runs the application
+            lifespan; required for ordering only, its value is unused.
+
+    Returns:
+        AsyncDatabase: The MongoDB database instance used by the application.
+    """
+    return app.state.mongo_client[get_settings().MONGO_DB]
+
+
+@pytest_asyncio.fixture
+async def cleanup_mongo_user_activity(mongo_db):
+    """
+    Clear the 'user_activity' collection after each test that uses it.
+
+    Yields control to the test first and performs the cleanup afterwards, so
+    that activity documents written by one test never leak into the next one.
+    Only the collection contents are removed; the collection itself and any
+    indexes are left intact.
+
+    Args:
+        mongo_db (AsyncDatabase): The application's MongoDB database instance.
+
+    Yields:
+        None: Control is handed back to the test before cleanup runs.
+    """
+    yield
+    await mongo_db["user_activity"].delete_many({})

@@ -14,7 +14,7 @@ from src.database.models.movies import MovieModel
 from src.dependencies.movies import get_movie_or_404
 from src.dependencies.cart import get_cart_in_current_user
 from src.schemas.cart import CartListResponseSchema
-from src.database.engine import get_db
+from src.database import get_db
 from src.database.models.cart import CartModel
 
 router = APIRouter(tags=["Cart"])

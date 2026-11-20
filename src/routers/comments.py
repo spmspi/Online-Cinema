@@ -7,7 +7,7 @@ from src.dependencies.comments import get_comment_or_404, get_sub_comment_or_404
 from src.database.models.accounts import UserModel
 from src.dependencies.user import get_current_user
 from src.dependencies.movies import get_movie_or_404, logic_like, Pagination, build_page_url
-from src.database.engine import get_db
+from src.database import get_db
 from src.database.models.movies import MovieModel
 from src.schemas.comments import (
     CommentRequestSchema,

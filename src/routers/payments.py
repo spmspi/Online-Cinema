@@ -1,7 +1,7 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request, status, Depends
-import stripe, os
+from fastapi import APIRouter, HTTPException, Request, status, Depends
+import stripe
 from sqlalchemy import select
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,13 +13,13 @@ from src.dependencies.service import get_accounts_email_notificator
 from src.notifications.interfaces import EmailSenderInterface
 from src.database.models.order import StatusOrderEnum, OrderItemModel
 from src.database.models.payments import PaymentsItemModel
-from src.settings import Settings, get_settings
+from src.config.dependencies import get_settings
 from src.database.models.order import OrdersModel
 from src.dependencies.payments import pay_order
 from src.dependencies.user import get_current_user
 from src.database.models.accounts import UserModel
 from src.database.models.payments import PaymentsModel, StatusPaymentsEnum
-from src.database.engine import get_db
+from src.database import get_db
 
 router = APIRouter(tags=["payments"])
 

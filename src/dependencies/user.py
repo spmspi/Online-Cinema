@@ -8,7 +8,7 @@ from sqlalchemy.testing.pickleable import User
 
 from src.dependencies.service import get_jwt_auth_manager, oauth2_scheme
 from src.database.models.accounts import UserGroupEnum
-from src.database.engine import get_db
+from src.database import get_db
 from src.database.models.accounts import UserModel
 from src.security.interface_token import JWTAuthManagerInterface
 from src.exceptions.security import BaseSecurityError

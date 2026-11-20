@@ -8,7 +8,7 @@ from src.database.models.order import StatusOrderEnum
 from src.database.models.order import OrdersModel, OrderItemModel
 from src.database.models.accounts import UserModel
 from src.dependencies.user import get_current_user
-from src.database.engine import get_db
+from src.database import get_db
 
 
 async def pay_order(

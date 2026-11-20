@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends, WebSocket, Request
 from pymongo.asynchronous.database import AsyncDatabase
 
-from src.settings import get_settings
+from src.config.dependencies import get_settings
 from src.dependencies.service import get_jwt_auth_manager
 from src.security.interface_token import JWTAuthManagerInterface
 from src.user_activity.activity_repo import UserActivityRepository

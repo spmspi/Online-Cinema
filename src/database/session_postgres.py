@@ -4,9 +4,8 @@ from typing import AsyncGenerator
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-import os
 
-from src.settings import get_settings
+from src.config.dependencies import get_settings
 from dotenv import load_dotenv
 
 load_dotenv()

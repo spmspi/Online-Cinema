@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import EmailStr
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timezone
 from typing import cast
-from src import settings
+from src.config.dependencies import get_settings
 from src.database.models.accounts import (
     UserModel,
     UserGroupModel,
@@ -14,9 +13,9 @@ from src.database.models.accounts import (
     RefreshTokenModel,
     PasswordResetTokenModel,
 )
-from src.database.engine import get_db
+from src.database import get_db
 from src.dependencies.service import get_jwt_auth_manager
-from src.dependencies.user import get_current_user, get_admin_user_group
+from src.dependencies.user import get_current_user
 from src.schemas.accounts import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
@@ -25,13 +24,8 @@ from src.schemas.accounts import (
     UserActivationRequestSchema,
     PasswordResetCompleteRequestSchema,
     MessageResponseSchema,
-    GetAccessTokenResponseSchema,
-    GetAccessTokenResponseSchema,
-    GetAccessTokenRequestSchema,
     PasswordResetRequestSchema,
-    ActivateAccountRequestSchema,
     ResetOldPasswordRequestSchema,
-    ChangeGroupSchema,
 )
 from src.database.models.accounts import ActivationTokenModel
 from src.security.interface_token import JWTAuthManagerInterface
@@ -41,10 +35,12 @@ from src.dependencies.activity import get_user_activity_repository
 from src.user_activity.interfaces import UserActivityRepoInterface
 from src.schemas.user_activity import UserBaseDTO
 
-router = APIRouter(tags=["Accounts"])
+router = APIRouter(tags=["accounts"])
+
+settings = get_settings()
 
 
-@router.post("/register/")
+@router.post("/register/", response_model=UserRegistrationResponseSchema, status_code=status.HTTP_201_CREATED)
 async def register_user(
     user_data: UserRegistrationRequestSchema,
     db: AsyncSession = Depends(get_db),

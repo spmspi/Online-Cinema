@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import select
@@ -6,7 +7,7 @@ import uuid
 import random
 from pymongo import AsyncMongoClient
 
-from src.settings import get_settings
+from src.config.dependencies import get_settings
 from src.user_activity.manager import UserActivityWebSocketManager
 from src.database.models.movies import (
     MovieModel,
@@ -15,28 +16,27 @@ from src.database.models.movies import (
     DirectorModel,
     StarModel,
 )
-from src.session_postgres import AsyncPostgresqlSessionLocal
+from src.database import get_db_contextmanager
 from src.database.models.base import Base
-from src.database.engine import engine
 from src.database.models.accounts import UserGroupModel
 
 
-async def init_default_groups():
+async def init_default_groups(session: AsyncSession):
 
     default_groups = ["admin", "user", "moderator"]
 
-    async with AsyncPostgresqlSessionLocal() as session:
-        for group_name in default_groups:
-            stmt = select(UserGroupModel).where(UserGroupModel.name == group_name)
-            result = await session.execute(stmt)
-            existing_group = result.scalar_one_or_none()
 
-            if not existing_group:
+    for group_name in default_groups:
+        stmt = select(UserGroupModel).where(UserGroupModel.name == group_name)
+        result = await session.execute(stmt)
+        existing_group = result.scalar_one_or_none()
 
-                new_group = UserGroupModel(name=group_name)
-                session.add(new_group)
+        if not existing_group:
 
-        await session.commit()
+            new_group = UserGroupModel(name=group_name)
+            session.add(new_group)
+
+    await session.commit()
 
 
 async def init_test_movies(session: AsyncSession):
@@ -144,20 +144,22 @@ async def init_test_movies(session: AsyncSession):
     session.add_all(movies_to_add)
     await session.commit()
 
+environment = os.getenv("ENVIRONMENT", "developing")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.mongo_client = AsyncMongoClient(settings.ME_CONFIG_MONGODB_URL)
     app.state.ws_manager = UserActivityWebSocketManager()
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await init_default_groups()
-    await init_test_movies(AsyncPostgresqlSessionLocal())
 
-    yield
-
-    await app.state.mongo_client.close()
+    try:
+        if os.getenv("ENVIRONMENT", "developing") != "testing":
+            async with get_db_contextmanager() as session:
+                await init_default_groups(session)
+                await init_test_movies(session)
+        yield
+    finally:
+        await app.state.mongo_client.close()
 
 
 app = FastAPI(lifespan=lifespan)

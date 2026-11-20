@@ -1,13 +1,8 @@
-import asyncio
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, select
 
-from src.database.models.payments import PaymentsModel
-from src.database.models.accounts import UserModel
-from src.database.models.cart import CartModel
-from src.database.models.movies import MovieModel
 from src.database.models.order import OrdersModel, StatusOrderEnum
-from src.session_postgres import SyncSessionLocal
+from src.database.session_postgres import SyncSessionLocal
 from src.database.models.accounts import RefreshTokenModel
 from src.celery.celery_app import celery_app
 

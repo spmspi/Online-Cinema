@@ -17,7 +17,7 @@ from src.dependencies.movies import (
     logic_like,
     search_favorite_movie,
 )
-from src.database.engine import get_db
+from src.database import get_db
 from src.database.models.movies import (
     MovieModel,
     GenreModel,

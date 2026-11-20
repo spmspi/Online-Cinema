@@ -3,13 +3,13 @@ from fastapi.security import OAuth2PasswordBearer
 
 from src.notifications.emails import EmailSender
 from src.notifications.interfaces import EmailSenderInterface
-from src.database.engine import settings
 from src.security.interface_token import JWTAuthManagerInterface
 from src.security.token_manager import JWTAuthManager
-from src.settings import Settings, get_settings
+from src.config.dependencies import Settings, get_settings
 from src.storage.interfaces import S3StorageInterface
 from src.storage.s3 import S3StorageClient
 
+settings = get_settings()
 
 def get_jwt_auth_manager(
     settings: Settings = Depends(get_settings),

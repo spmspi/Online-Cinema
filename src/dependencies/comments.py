@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from src.database.engine import get_db
+from src.database import get_db
 from src.database.models.comments import (
     CommentModel,
     SubCommentModel,

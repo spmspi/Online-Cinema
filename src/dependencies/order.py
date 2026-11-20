@@ -9,7 +9,7 @@ from src.database.models.accounts import UserModel
 from src.dependencies.user import get_current_user
 from src.database.models.cart import CartItemModel
 from src.dependencies.cart import get_cart_in_current_user
-from src.database.engine import get_db
+from src.database import get_db
 from src.database.models.cart import CartModel
 
 

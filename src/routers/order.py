@@ -15,7 +15,7 @@ from src.schemas.accounts import MessageResponseSchema
 from src.database.models.accounts import UserModel
 from src.dependencies.user import get_current_user
 
-from src.database.engine import get_db
+from src.database import get_db
 
 router = APIRouter(tags=["order"])
 
