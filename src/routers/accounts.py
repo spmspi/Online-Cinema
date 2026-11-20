@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
+import uuid
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timezone
 from typing import cast
@@ -141,7 +142,7 @@ async def login_user(
             detail="An error occurred while processing the request.",
         )
 
-    jwt_access_token = jwt_manager.create_access_token({"user_id": user.id})
+    jwt_access_token = jwt_manager.create_access_token({"user_id": user.id, "jti": str(uuid.uuid4())})
     return UserLoginResponseSchema(
         access_token=jwt_access_token,
         refresh_token=jwt_refresh_token,
@@ -303,6 +304,7 @@ async def reset_password(
 @router.post(
     "/logout/",
     response_model=MessageResponseSchema,
+    status_code=status.HTTP_200_OK,
 )
 async def logout_user(
     user: UserModel = Depends(get_current_user),

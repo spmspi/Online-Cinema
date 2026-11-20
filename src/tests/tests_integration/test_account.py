@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
@@ -312,4 +313,183 @@ async def test_activate_already_active_user(client, db_session, seed_user_groups
     assert activation_response.json()["detail"] == "User account is already active.", (
         "Expected error message for already active user."
     )
+
+@pytest.mark.asyncio
+async def test_logout_user(client, db_session, seed_user_groups):
+    """
+    Test for refresh token removal after logout
+    It also verifies that the logout token is unique.
+    Steps:
+    - Register a new user.
+    - Mark the user as active in the database.
+    - we keep the old refresh token
+    - Log out and log back in
+    - We verify that the old and new tokens do not match.
+
+    """
+    registration_payload = {
+        "email": "testuser@example.com",
+        "password": "StrongPassword123!"
+    }
+
+    registration_response = await client.post("/register/", json=registration_payload)
+    assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
+
+    stmt = select(UserModel).where(UserModel.email == registration_payload["email"])
+    result = await db_session.execute(stmt)
+    user = result.scalars().first()
+
+    user.is_active = True
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    user_id = user.id
+
+    login = await client.post("/login/", json=registration_payload)
+    assert login.status_code == 200, "Expected status code 200 for successful login."
+
+    response_data = login.json()
+    header = response_data["access_token"]
+
+    stmt = select(RefreshTokenModel).filter_by(user_id=user_id)
+    result = await db_session.execute(stmt)
+    token = result.scalars().first()
+
+    assert token is not None, "Token should exist in the database."
+
+    old_token = token.token
+
+    assert user is not None, "User should exist in the database."
+
+    logout = await client.post("/logout/", json={}, headers={"Authorization": f"Bearer {header}"})
+    assert logout.status_code == 200, "Expected status code 200 for successful logout."
+
+    await db_session.commit()
+    await db_session.refresh(user)
+
+    stmt = select(RefreshTokenModel).filter_by(user_id=user_id)
+    result = await db_session.execute(stmt)
+    token_after_logout = result.scalars().first()
+
+    assert token_after_logout is None, "The refresh token must be deleted after logout."
+
+    login = await client.post("/login/", json=registration_payload)
+    assert login.status_code == 200, "Expected status code 200 for successful login."
+
+    db_session.expire_all()
+
+    stmt = select(RefreshTokenModel).filter_by(user_id=user_id)
+    result = await db_session.execute(stmt)
+    token_after_logout = result.scalars().first()
+
+    assert token_after_logout.token != old_token, "After login, a new refresh token should be created."
+
+
+
+
+@pytest.mark.asyncio
+async def test_request_password_reset_token_success(client, db_session, seed_user_groups):
+    """
+    Test successful password reset token request.
+
+    Ensures that a password reset token is created for an active user.
+
+    Steps:
+    - Register a new user.
+    - Mark the user as active.
+    - Request a password reset token.
+    - Verify that the endpoint returns status 200 and the expected success message.
+    - Query the database to confirm that a PasswordResetTokenModel record was created.
+    - Verify that the token's expiration date is in the future.
+    """
+    registration_payload = {
+        "email": "testuser@example.com",
+        "password": "StrongPassword123!"
+    }
+    registration_response = await client.post("/register/", json=registration_payload)
+    assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
+
+    stmt = select(UserModel).where(UserModel.email == registration_payload["email"])
+    result = await db_session.execute(stmt)
+    user = result.scalars().first()
+    assert user is not None, "User should exist in the database."
+
+    user.is_active = True
+    await db_session.commit()
+
+    reset_payload = {"email": registration_payload["email"]}
+    reset_response = await client.post("/password-reset/request/", json=reset_payload)
+    assert reset_response.status_code == 200, "Expected status code 200 for successful token request."
+    assert reset_response.json()["message"] == "If you are registered, you will receive an email with instructions.", \
+        "Expected success message for password reset token request."
+
+    stmt_token = select(PasswordResetTokenModel).where(PasswordResetTokenModel.user_id == user.id)
+    result_token = await db_session.execute(stmt_token)
+    reset_token = result_token.scalars().first()
+    assert reset_token is not None, "Password reset token should be created for the user."
+
+    expires_at = reset_token.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    assert expires_at > datetime.now(timezone.utc), "Password reset token should have a future expiration date."
+
+
+@pytest.mark.asyncio
+async def test_request_password_reset_token_nonexistent_user(client, db_session):
+    """
+    Test password reset token request for a non-existent user.
+
+    Ensures that the endpoint responds with a generic success message and that no password reset token is created
+    when the email does not exist in the database.
+    """
+    reset_payload = {"email": "nonexistent@example.com"}
+
+    reset_response = await client.post("/password-reset/request/", json=reset_payload)
+    assert reset_response.status_code == 200, "Expected status code 200 for non-existent user request."
+    assert reset_response.json()["message"] == "If you are registered, you will receive an email with instructions.", (
+        "Expected generic success message for non-existent user request."
+    )
+
+    stmt = select(func.count(PasswordResetTokenModel.id))
+    result = await db_session.execute(stmt)
+    reset_token_count = result.scalar_one()
+    assert reset_token_count == 0, "No password reset token should be created for non-existent user."
+
+
+@pytest.mark.asyncio
+async def test_request_password_reset_token_for_inactive_user(client, db_session, seed_user_groups):
+    """
+    Test password reset token request for a registered but inactive user.
+
+    Ensures that the endpoint returns the generic success message and that no password reset token
+    is created when the user is registered but inactive.
+    """
+    registration_payload = {
+        "email": "inactiveuser@example.com",
+        "password": "StrongPassword123!"
+    }
+    registration_response = await client.post("/register/", json=registration_payload)
+    assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
+
+    stmt = select(UserModel).where(UserModel.email == registration_payload["email"])
+    result = await db_session.execute(stmt)
+    created_user = result.scalars().first()
+    assert created_user is not None, "User should be created in the database."
+    assert not created_user.is_active, "User should not be active after registration."
+
+    reset_payload = {"email": registration_payload["email"]}
+    reset_response = await client.post("/password-reset/request/", json=reset_payload)
+    assert reset_response.status_code == 200, "Expected status code 200 for inactive user password reset request."
+    assert reset_response.json()["message"] == "If you are registered, you will receive an email with instructions.", (
+        "Expected generic success message for inactive user password reset request."
+    )
+
+    stmt_tokens = select(func.count(PasswordResetTokenModel.id))
+    result_tokens = await db_session.execute(stmt_tokens)
+    reset_token_count = result_tokens.scalar_one()
+    assert reset_token_count == 0, "No password reset token should be created for an inactive user."
+
+
+
 
