@@ -3,7 +3,8 @@ from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient, ASGITransport
 
-from src.lifespan import init_default_groups
+from src.database.models.movies import MovieModel
+from src.lifespan import init_default_groups, init_test_movies
 from src.security.interface_token import JWTAuthManagerInterface
 from src.security.token_manager import JWTAuthManager
 from src.config.dependencies import get_accounts_email_notificator, get_s3_storage_client, get_settings
@@ -261,3 +262,13 @@ async def cleanup_mongo_user_activity(mongo_db):
     """
     yield
     await mongo_db["user_activity"].delete_many({})
+
+
+@pytest_asyncio.fixture(scope="function")
+async def seed_database(db_session: AsyncSession):
+    await init_test_movies(db_session)
+
+    stmt = select(MovieModel)
+    result = await db_session.execute(stmt)
+    movies = result.scalars().all()
+    return movies

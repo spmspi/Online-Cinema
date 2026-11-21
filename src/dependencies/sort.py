@@ -37,4 +37,6 @@ class MovieSortParams:
             stmt = stmt.order_by(MovieModel.meta_score.asc())
         elif self.sort_by == MovieSortEnum.META_SCORE_DESC:
             stmt = stmt.order_by(MovieModel.meta_score.desc())
+        else:
+            stmt = stmt.order_by(*MovieModel.default_order_by())
         return stmt
