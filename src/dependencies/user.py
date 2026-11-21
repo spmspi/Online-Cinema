@@ -36,7 +36,7 @@ async def get_current_user(
             )
         if user.is_active == False:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=404,
                 detail="This account is already activated.",
             )
         return user
