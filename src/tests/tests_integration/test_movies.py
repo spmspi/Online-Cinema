@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 
-from database import MovieModel
-from database import (
+from src.database import MovieModel, DirectorModel
+from src.database import (
     GenreModel,
     StarModel,
     CertificationModel,
@@ -143,4 +143,108 @@ async def test_movies_sorted_by_id_desc(client, db_session, seed_database):
     assert returned_movie_ids == expected_movie_ids, (
         f"Movies are not sorted by `id` in descending order. "
         f"Expected: {expected_movie_ids}, but got: {returned_movie_ids}"
+    )
+
+
+
+@pytest.mark.asyncio
+async def test_movies_filter_dy_name(client, db_session, seed_database):
+    """
+    testing search by movie title
+    """
+    response = await client.get("/movies/", params={"search": "Secret"})
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_names = [movie["name"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_names) > 0, "Expected at least one movie matching 'Secret'"
+
+    assert all("secret" in name.lower() for name in returned_movie_names), f"Some returned movies do not contain 'Secret': {returned_movie_names}"
+
+
+@pytest.mark.asyncio
+async def test_movies_filter_dy_star_name(client, db_session, seed_database):
+    """
+    testing search by star in movie
+    """
+    response = await client.get("/movies/", params={"search": "Leonardo DiCaprio"})
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'Leonardo DiCaprio'"
+
+    stmt = select(MovieModel.id).join(MovieModel.stars).where(StarModel.name.ilike("Leonardo DiCaprio")).order_by(*MovieModel.default_order_by()).limit(10)
+    result = await db_session.execute(stmt)
+    search_results = result.scalars().all()
+
+    list_ids = [movie for movie in search_results]
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by actor 'Leonardo DiCaprio' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
+    )
+
+    response = await client.get("/movies/", params={"search": "DiCap"})
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'DiCap'"
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by actor 'DiCap' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_movies_filter_dy_director_name(client, db_session, seed_database):
+    """
+    testing search by director in movie
+    """
+    response = await client.get("/movies/", params={"search": "Quentin Tarantino"})
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'Quentin Tarantino'"
+
+    stmt = select(MovieModel.id).join(MovieModel.directors).where(DirectorModel.name.ilike("Quentin Tarantino")).order_by(*MovieModel.default_order_by()).limit(10)
+    result = await db_session.execute(stmt)
+    search_results = result.scalars().all()
+
+    list_ids = [movie for movie in search_results]
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by director 'Quentin Tarantino' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
+    )
+
+    response = await client.get("/movies/", params={"search": "taran"})
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'taran'"
+
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by director 'taran' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
     )
