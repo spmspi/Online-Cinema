@@ -46,7 +46,7 @@ router = APIRouter(
 )
 
 
-@router.post("/movies/", response_model=MovieDetailResponseSchema)
+@router.post("/movies/", response_model=MovieDetailResponseSchema, status_code=status.HTTP_201_CREATED)
 async def create_movie(
     movie_data: MovieCreateRequestSchema,
     db: AsyncSession = Depends(get_db),

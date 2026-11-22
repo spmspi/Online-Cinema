@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -24,24 +25,28 @@ class MovieListResponseSchema(BaseModel):
 
 
 class CertificationSchema(BaseModel):
+    id: int
     name: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class GenresSchema(BaseModel):
+    id: int
     name: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class StarsSchema(BaseModel):
+    id: int
     name: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class DirectorsSchema(BaseModel):
+    id: int
     name: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -66,10 +71,15 @@ class MovieCreateRequestSchema(BaseModel):
 
 class MovieDetailResponseSchema(MovieCreateRequestSchema):
     id: int
+    uuid_movie: UUID
+    likes_count: Optional[int] = 0
+    dislikes_count: Optional[int] = 0
     certification: CertificationSchema
     genres: List[GenresSchema]
     stars: List[StarsSchema]
     directors: List[DirectorsSchema]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MovieUpdateSchema(BaseModel):
