@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 from sqlalchemy import select, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from database import UserGroupModel, UserGroupEnum, UserModel
 from src.database import MovieModel, DirectorModel
@@ -565,3 +565,254 @@ async def test_post_score_movie(client, db_session, seed_database):
     assert response.status_code == 400, f"Expected status code 400, but got {response.status_code}"
 
 
+@pytest.mark.asyncio
+async def test_favorite_movie(client, db_session, seed_database):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt_list = select(MovieModel.id).order_by(MovieModel.id.asc()).limit(5)
+    result = await db_session.execute(stmt_list)
+    list_movie = result.scalars().all()
+    for movie in list_movie:
+        response = await client.post(f"/{movie}/favorite/", headers=headers)
+        assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    stmt = select(UserModel).options(selectinload(UserModel.favorites))
+    result = await db_session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    assert len(user.favorites) == 5, f"5 films were added to the cycle, but in the list: {len(user.favorites)}"
+
+
+@pytest.mark.asyncio
+async def test_delete_favorite_movie(client, db_session, seed_database):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt_list = select(MovieModel.id).order_by(MovieModel.id.asc()).limit(5)
+    result = await db_session.execute(stmt_list)
+    list_movie = result.scalars().all()
+    for movie in list_movie:
+        response = await client.post(f"/{movie}/favorite/", headers=headers)
+        assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    stmt = select(UserModel).options(selectinload(UserModel.favorites))
+    result = await db_session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    assert len(user.favorites) == 5, f"5 films were added to the cycle, but in the list: {len(user.favorites)}"
+
+    response = await client.delete(f"/{list_movie[0]}/favorite/", headers=headers)
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    await db_session.refresh(user)
+
+    assert len(user.favorites) == 4, f"Something went wrong while deleting a movie from the list: {len(user.favorites)}"
+
+@pytest.mark.asyncio
+async def test_get_favorite_movies(client, db_session, seed_database):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt_list = select(MovieModel.id).order_by(MovieModel.id.asc()).limit(20)
+    result = await db_session.execute(stmt_list)
+    list_movie = result.scalars().all()
+    for movie in list_movie:
+        response = await client.post(f"/{movie}/favorite/", headers=headers)
+        assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response = await client.get("/favorites/", headers=headers)
+    assert response.status_code == 200, "Expected status code 200, but got a different value"
+
+    response_data = response.json()
+
+    assert len(response_data["movies"]) == 10, "Expected 10 movies in the response, but got a different count"
+
+    assert response_data["total_pages"] > 0, "Expected total_pages > 0, but got a non-positive value"
+    assert response_data["total_items"] > 0, "Expected total_items > 0, but got a non-positive value"
+
+    assert response_data["prev_page"] is None, "Expected prev_page to be None on the first page, but got a value"
+
+    if response_data["total_pages"] > 1:
+        assert response_data["next_page"] is not None, (
+            "Expected next_page to be present when total_pages > 1, but got None"
+        )
+
+
+
+@pytest.mark.asyncio
+async def test_get_favorite_movie_not_favorite(client, db_session, seed_database):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+
+    response = await client.get("/favorites/", headers=headers)
+    assert response.status_code == 400, f"Expected 404, got {response.status_code}"
+
+    expected_detail = {"detail": "You haven't added any movies to your favorites yet"}
+    assert response.json() == expected_detail, f"Expected {expected_detail}, got {response.json()}"
+
+
+@pytest.mark.asyncio
+async def test_movies_filter_dy_name_in_favorite(client, db_session, seed_database):
+    """
+    testing search by movie title in favorites
+    """
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt_list = select(MovieModel.id).order_by(MovieModel.id.asc()).limit(50)
+    result = await db_session.execute(stmt_list)
+    list_movie = result.scalars().all()
+    for movie in list_movie:
+        response = await client.post(f"/{movie}/favorite/", headers=headers)
+        assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response = await client.get("/favorites/", params={"search": "Secret"}, headers=headers)
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_names = [movie["name"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_names) > 0, "Expected at least one movie matching 'Secret'"
+
+    assert all("secret" in name.lower() for name in returned_movie_names), f"Some returned movies do not contain 'Secret': {returned_movie_names}"
+
+
+
+@pytest.mark.asyncio
+async def test_movies_filter_dy_star_name_in_favorite(client, db_session, seed_database):
+    """
+    testing search by star in movie
+    """
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt_list = select(MovieModel.id).order_by(MovieModel.id.asc()).limit(50)
+    result = await db_session.execute(stmt_list)
+    list_movie = result.scalars().all()
+    for movie in list_movie:
+        response = await client.post(f"/{movie}/favorite/", headers=headers)
+        assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+
+    response = await client.get("/favorites/", params={"search": "Leonardo DiCaprio"}, headers=headers)
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'Leonardo DiCaprio'"
+
+    stmt = (
+        select(MovieModel.id)
+        .join(MovieModel.stars)
+        .where(
+            MovieModel.id.in_(list_movie),
+            StarModel.name.ilike("Leonardo DiCaprio"),
+        )
+        .order_by(*MovieModel.default_order_by())
+    )
+    result = await db_session.execute(stmt)
+    search_results = result.scalars().all()
+
+    list_ids = [movie for movie in search_results]
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by actor 'Leonardo DiCaprio' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
+    )
+
+    response = await client.get("/favorites/", params={"search": "DiCap"}, headers=headers)
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'DiCap'"
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by actor 'DiCap' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_movies_filter_dy_director_name(client, db_session, seed_database):
+    """
+    testing search by director in movie
+    """
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt_list = select(MovieModel.id).order_by(MovieModel.id.asc()).limit(50)
+    result = await db_session.execute(stmt_list)
+    list_movie = result.scalars().all()
+    for movie in list_movie:
+        response = await client.post(f"/{movie}/favorite/", headers=headers)
+        assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response = await client.get("/favorites/", params={"search": "Quentin Tarantino"}, headers=headers)
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'Quentin Tarantino'"
+
+    stmt = (
+        select(MovieModel.id)
+        .join(MovieModel.directors)
+        .where(
+            MovieModel.id.in_(list_movie),
+            DirectorModel.name.ilike("Quentin Tarantino"),
+        )
+        .order_by(*MovieModel.default_order_by())
+    )
+    result = await db_session.execute(stmt)
+    search_results = result.scalars().all()
+
+    list_ids = [movie for movie in search_results]
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by director 'Quentin Tarantino' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
+    )
+
+    response = await client.get("/favorites/", params={"search": "taran"}, headers=headers)
+
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+
+    returned_movie_ids = [movie["id"] for movie in response_data["movies"]]
+
+    assert len(returned_movie_ids) > 0, "Expected at least one movie matching 'taran'"
+
+
+    assert list_ids == returned_movie_ids, (
+        f"Filter by director 'taran' did not work, expected: {list_ids}"
+        f"Received response: {returned_movie_ids}"
+    )
+
+@pytest.mark.asyncio
+async def test_add_movie_not_found_in_favorite(client, db_session):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    movie_id = 1
+    response = await client.post(f"/{movie_id}/favorite/", headers=headers)
+    assert response.status_code == 404, f"Expected status code 404, but got {response.status_code}"
+
+    response_data = response.json()
+    assert response_data == {"detail": "Movie not found."}, (
+        f"Expected error message not found. Got: {response_data}"
+    )

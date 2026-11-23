@@ -139,7 +139,7 @@ async def add_movie_rating(
     return MovieRatingResponseSchema(movie_id=movie.id, meta_score=movie.meta_score)
 
 
-@router.post("/movies/{movie_id}/favorite/", response_model=MessageResponseSchema)
+@router.post("/{movie_id}/favorite/", response_model=MessageResponseSchema, status_code=200)
 async def add_in_favorite_movie(
     movie: MovieModel = Depends(get_movie_or_404),
     db: AsyncSession = Depends(get_db),
@@ -160,7 +160,7 @@ async def add_in_favorite_movie(
 
 
 @router.get(
-    "/movies/favorites/",
+    "/favorites/",
 )
 async def get_favorite_movies(
     current_user: UserModel = Depends(get_current_user),
@@ -184,6 +184,8 @@ async def get_favorite_movies(
 
     result = await db.execute(paginated_stmt)
     movies = result.scalars().all()
+    if not movies:
+        raise HTTPException(status_code=400, detail="You haven't added any movies to your favorites yet")
 
     movie_list = [MovieListItemSchema.model_validate(movie) for movie in movies]
 
@@ -191,14 +193,14 @@ async def get_favorite_movies(
         movies=movie_list,
         prev_page=(
             build_page_url(
-                "/movies/favorites/", pagination.page - 1, pagination.limit, search
+                "/favorites/", pagination.page - 1, pagination.limit, search
             )
             if pagination.page > 1
             else None
         ),
         next_page=(
             build_page_url(
-                "/movies/favorites/", pagination.page + 1, pagination.limit, search
+                "/favorites/", pagination.page + 1, pagination.limit, search
             )
             if pagination.page < total_pages
             else None
@@ -208,7 +210,7 @@ async def get_favorite_movies(
     )
 
 
-@router.delete("/movies/{movie_id}/favorites/", response_model=MessageResponseSchema)
+@router.delete("/{movie_id}/favorite/", response_model=MessageResponseSchema)
 async def remove_favorite_movie(
     movie: MovieModel = Depends(get_movie_or_404),
     current_user: UserModel = Depends(get_current_user),
