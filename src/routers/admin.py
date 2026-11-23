@@ -106,7 +106,7 @@ async def create_movie(
         raise HTTPException(status_code=400, detail=f"{e}")
 
 
-@router.delete("/movies/{movie_id}")
+@router.delete("/movies/{movie_id}/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_movie(
     movie_id: int,
     db: AsyncSession = Depends(get_db),
@@ -140,7 +140,7 @@ async def delete_movie(
     return {"detail": "Movie deleted successfully."}
 
 
-@router.patch("/movies/{movie_id}")
+@router.patch("/movies/{movie_id}/")
 async def update_movie(
     movie_data: MovieUpdateSchema,
     movie: MovieModel = Depends(get_movie_or_404),

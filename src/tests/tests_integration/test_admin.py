@@ -12,6 +12,8 @@ from src.database import (
     StarModel,
     CertificationModel,
 )
+from src.tests.service_tests import AuthTestHelper
+
 
 @pytest.mark.asyncio
 async def test_create_movie_and_related_models(client, db_session):
@@ -19,37 +21,8 @@ async def test_create_movie_and_related_models(client, db_session):
     Test that a new movie is created successfully and related models
     (genres, stars, certification, ) are created if they do not exist.
     """
-    user_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
-
-    stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.ADMIN)
-    result = await db_session.execute(stmt)
-    user_group = result.scalars().first()
-    assert user_group is not None, "Default user group should exist."
-
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
-    user.is_active = True
-    db_session.add(user)
-    await db_session.commit()
-
-    login_response = await client.post(
-        "/login/",
-        json={
-            "email": user_payload["email"],
-            "password": user_payload["password"],
-        },
-    )
-    assert login_response.status_code == 200, f"Login failed: {login_response.text}"
-
-    login_data = login_response.json()
-    access_token = login_data["access_token"]
-    headers = {"Authorization": f"Bearer {access_token}"}
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
 
     movie_data = {
         "name": "New Movie",
@@ -111,37 +84,8 @@ async def test_create_movie_duplicate_error(client, db_session, seed_database):
     Test that trying to create a movie with the same name and date as an existing movie
     results in a 409 conflict error.
     """
-    user_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
-
-    stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.ADMIN)
-    result = await db_session.execute(stmt)
-    user_group = result.scalars().first()
-    assert user_group is not None, "Default user group should exist."
-
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
-    user.is_active = True
-    db_session.add(user)
-    await db_session.commit()
-
-    login_response = await client.post(
-        "/login/",
-        json={
-            "email": user_payload["email"],
-            "password": user_payload["password"],
-        },
-    )
-    assert login_response.status_code == 200, f"Login failed: {login_response.text}"
-
-    login_data = login_response.json()
-    access_token = login_data["access_token"]
-    headers = {"Authorization": f"Bearer {access_token}"}
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
 
     stmt = select(MovieModel).limit(1)
     result = await db_session.execute(stmt)
@@ -175,3 +119,165 @@ async def test_create_movie_duplicate_error(client, db_session, seed_database):
     assert response_data["detail"] == expected_detail, (
         f"Expected detail message: {expected_detail}, but got: {response_data['detail']}"
     )
+
+@pytest.mark.asyncio
+async def test_delete_movie_success(client, db_session, seed_database):
+    """
+    Test the `/movies/{movie_id}/` endpoint for successful movie deletion.
+    """
+    user_payload = {
+        "email": "testuser@example.com",
+        "password": "StrongPassword123!"
+    }
+
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
+
+    stmt = select(MovieModel).limit(1)
+    result = await db_session.execute(stmt)
+    movie = result.scalars().first()
+    assert movie is not None, "No movies found in the database to delete."
+
+    movie_id = movie.id
+
+    response = await client.delete(f"/admin/movies/{movie_id}/", headers=headers)
+    assert response.status_code == 204, f"Expected status code 204, but got {response.status_code}"
+
+    stmt_check = select(MovieModel).where(MovieModel.id == movie_id)
+    result_check = await db_session.execute(stmt_check)
+    deleted_movie = result_check.scalars().first()
+    assert deleted_movie is None, f"Movie with ID {movie_id} was not deleted."
+
+
+@pytest.mark.asyncio
+async def test_delete_movie_not_found(client, db_session):
+    """
+    Test the `/admin/movies/{movie_id}/` endpoint with a non-existent movie ID.
+    """
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
+
+    non_existent_id = 99999
+
+    response = await client.delete(f"/admin/movies/{non_existent_id}/", headers=headers)
+    assert response.status_code == 404, f"Expected status code 404, but got {response.status_code}"
+
+    response_data = response.json()
+    expected_detail = "Movie with the given ID was not found."
+    assert response_data["detail"] == expected_detail, (
+        f"Expected detail message: {expected_detail}, but got: {response_data['detail']}"
+    )
+
+@pytest.mark.asyncio
+async def test_delete_movie_no_permissions(client, db_session, seed_database):
+    """Test the `/admin/movies/{movie_id}/` endpoint with a non-existent permissions."""
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt = select(MovieModel).limit(1)
+    result = await db_session.execute(stmt)
+    movie = result.scalars().first()
+    assert movie is not None, "No movies found in the database to delete."
+
+    movie_id = movie.id
+
+    response = await client.delete(f"/admin/movies/{movie_id}/", headers=headers)
+    assert response.status_code == 404, f"Expected status code 404, but got {response.status_code}"
+
+    stmt_check = select(MovieModel).where(MovieModel.id == movie_id)
+    result_check = await db_session.execute(stmt_check)
+    deleted_movie = result_check.scalars().first()
+    assert deleted_movie is not None, f"Movie with ID {movie_id} deleted."
+
+
+@pytest.mark.asyncio
+async def test_update_movie_success(client, db_session, seed_database):
+    """
+    Test the `/movies/{movie_id}/` endpoint for successfully updating a movie's details.
+    """
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
+
+    stmt = select(MovieModel).limit(1)
+    result = await db_session.execute(stmt)
+    movie = result.scalars().first()
+    assert movie is not None, "No movies found in the database to update."
+
+    movie_id = movie.id
+    update_data = {
+        "name": "Updated Movie Name",
+        "year": 2000,
+    }
+
+    response = await client.patch(f"/admin/movies/{movie_id}/", json=update_data, headers=headers)
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    response_data = response.json()
+    assert response_data["detail"] == "Movie updated successfully.", (
+        f"Expected detail message: 'Movie updated successfully.', but got: {response_data['detail']}"
+    )
+
+    await db_session.rollback()
+
+    stmt_check = select(MovieModel).where(MovieModel.id == movie_id)
+    result_check = await db_session.execute(stmt_check)
+    updated_movie = result_check.scalars().first()
+
+    assert updated_movie.name == update_data["name"], "Movie name was not updated."
+    assert updated_movie.year == update_data["year"], "Movie year was not updated."
+
+@pytest.mark.asyncio
+async def test_update_movie_not_permissions(client, db_session, seed_database):
+    """
+    Test the `/movies/{movie_id}/` endpoint for successfully updating a movie's details.
+    """
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt = select(MovieModel).limit(1)
+    result = await db_session.execute(stmt)
+    movie = result.scalars().first()
+    assert movie is not None, "No movies found in the database to update."
+
+    movie_id = movie.id
+    update_data = {
+        "name": "Updated Movie Name",
+        "year": 2000,
+    }
+
+    response = await client.patch(f"/admin/movies/{movie_id}/", json=update_data, headers=headers)
+    assert response.status_code == 404, f"Expected status code 404, but got {response.status_code}"
+
+    await db_session.rollback()
+
+    stmt_check = select(MovieModel).where(MovieModel.id == movie_id)
+    result_check = await db_session.execute(stmt_check)
+    updated_movie = result_check.scalars().first()
+
+    assert updated_movie.name != update_data["name"], "Movie name was not updated."
+    assert updated_movie.year != update_data["year"], "Movie year was not updated."
+
+
+@pytest.mark.asyncio
+async def test_update_movie_not_found(client, db_session, seed_database):
+    """
+    Test the `/movies/{movie_id}/` endpoint with a non-existent movie ID.
+    """
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
+
+    non_existent_id = 99999
+    update_data = {
+        "name": "Non-existent Movie",
+        "year": 2005
+    }
+
+    response = await client.patch(f"/admin/movies/{non_existent_id}/", json=update_data, headers=headers)
+    assert response.status_code == 404, f"Expected status code 404, but got {response.status_code}"
+
+    response_data = response.json()
+    expected_detail = "Movie not found."
+    assert response_data["detail"] == expected_detail, (
+        f"Expected detail message: {expected_detail}, but got: {response_data['detail']}"
+    )
+

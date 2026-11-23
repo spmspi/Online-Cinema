@@ -272,3 +272,5 @@ async def seed_database(db_session: AsyncSession):
     result = await db_session.execute(stmt)
     movies = result.scalars().all()
     return movies
+
+

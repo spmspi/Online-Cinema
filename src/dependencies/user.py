@@ -78,7 +78,7 @@ async def get_admin_user_group(
     user = result.scalar_one_or_none()
     if not user.group or user.group.name not in UserGroupEnum.ADMIN:
         raise HTTPException(
-            status_code=403,
+            status_code=404,
             detail="insufficient permissions for these actions",
         )
     return user
