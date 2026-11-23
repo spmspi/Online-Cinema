@@ -104,7 +104,7 @@ async def get_movie(movie_id: int, db: AsyncSession = Depends(get_db)):
     return MovieDetailResponseSchema.model_validate(movie)
 
 
-@router.post("/movies/{movie_id}/rating", response_model=MovieRatingResponseSchema)
+@router.post("/movies/{movie_id}/rating/", response_model=MovieRatingResponseSchema)
 async def add_movie_rating(
     data: MovieRatingRequestSchema,
     movie: MovieModel = Depends(get_movie_or_404),

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class MovieListItemSchema(BaseModel):
@@ -101,6 +101,15 @@ class MovieRatingResponseSchema(BaseModel):
 
 class MovieRatingRequestSchema(BaseModel):
     score: float
+
+    @field_validator("score")
+    @classmethod
+    def validate_email(cls, value):
+        if value <= 0:
+            raise ValueError("Score must be positive.")
+        elif value > 10:
+            raise ValueError("Score must be less than 10.")
+        return value
 
 
 class MovieLikeRequestSchema(BaseModel):

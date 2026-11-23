@@ -12,6 +12,7 @@ from src.database import (
     StarModel,
     CertificationModel,
 )
+from tests.service_tests import AuthTestHelper
 
 
 @pytest.mark.asyncio
@@ -510,4 +511,57 @@ async def test_get_movie_by_id_fields_match_database(client, db_session, seed_da
     )
 
     assert actual_directors == expected_directors, "Directors do not match."
+
+
+@pytest.mark.asyncio
+async def test_post_score_movie(client, db_session, seed_database):
+
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    stmt = select(MovieModel)
+    result_min = await db_session.execute(stmt)
+    movie = result_min.scalars().first()
+    old_score = movie.meta_score
+    data = {
+        "score": 10.0
+    }
+    assert movie is not None, "Movie not found in database."
+
+    response = await client.post(f"/movies/{movie.id}/rating/", json=data, headers=headers)
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    await db_session.refresh(movie)
+    new_score = movie.meta_score
+    assert old_score != new_score, "Score should not be updated."
+
+    data_negative_score = {
+        "score": -10.0
+    }
+
+    response = await client.post(f"/movies/{movie.id}/rating/", json=data_negative_score, headers=headers)
+    assert response.status_code == 422, f"Expected status code 422, but got {response.status_code}"
+
+    await db_session.refresh(movie)
+    new_score_negative = movie.meta_score
+
+    assert new_score == new_score_negative, "Score should updated using negative score."
+
+    data_big_score = {
+        "score": 15.0
+    }
+    response = await client.post(f"/movies/{movie.id}/rating/", json=data_big_score, headers=headers)
+    assert response.status_code == 422, f"Expected status code 422, but got {response.status_code}"
+
+    await db_session.refresh(movie)
+    new_score_big_positive = movie.meta_score
+
+    assert new_score == new_score_big_positive, "Score should updated using big positive score."
+
+    new_score_again = {
+        "score": 6.0
+    }
+    response = await client.post(f"/movies/{movie.id}/rating/", json=new_score_again, headers=headers)
+    assert response.status_code == 400, f"Expected status code 400, but got {response.status_code}"
+
 
