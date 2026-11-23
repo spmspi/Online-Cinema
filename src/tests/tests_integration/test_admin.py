@@ -3,9 +3,10 @@ from decimal import Decimal
 
 import pytest
 from sqlalchemy import select, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
-from database import UserGroupModel, UserGroupEnum, UserModel
+from src.database import UserGroupModel, UserGroupEnum, UserModel
+from src.schemas.accounts import UserRoleEnum
 from src.database import MovieModel, DirectorModel
 from src.database import (
     GenreModel,
@@ -242,7 +243,7 @@ async def test_update_movie_not_permissions(client, db_session, seed_database):
     movie_id = movie.id
     update_data = {
         "name": "Updated Movie Name",
-        "year": 2000,
+        "year": 1899,
     }
 
     response = await client.patch(f"/admin/movies/{movie_id}/", json=update_data, headers=headers)
@@ -281,3 +282,125 @@ async def test_update_movie_not_found(client, db_session, seed_database):
         f"Expected detail message: {expected_detail}, but got: {response_data['detail']}"
     )
 
+@pytest.mark.asyncio
+async def test_change_group_for_user(client, db_session):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
+
+    await db_session.rollback()
+
+    new_user = await auth.create_user(
+        email="new_user_email@example.com",
+        password="StroNGPassword@!!123",
+        group_name=UserGroupEnum.USER,
+    )
+
+    data = {
+        "email": "new_user_email@example.com",
+        "role": UserRoleEnum.ADMIN,
+    }
+
+    response = await client.post("/admin/group_change/", json=data, headers=headers)
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    await db_session.refresh(new_user)
+
+    stmt_check = select(UserModel).where(UserModel.id == new_user.id).options(
+        selectinload(UserModel.group)
+    )
+    result_check = await db_session.execute(stmt_check)
+    new_user_check = result_check.scalar_one_or_none()
+
+    assert data["role"] == new_user_check.group.name, "User role was not updated."
+
+
+@pytest.mark.asyncio
+async def test_change_group_for_user_not_permissions(client, db_session):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    new_user = await auth.create_user(
+        email="new_user_email@example.com",
+        password="StroNGPassword@!!123",
+        group_name=UserGroupEnum.USER,
+    )
+
+    await db_session.rollback()
+
+    data = {
+        "email": "new_user_email@example.com",
+        "role": UserRoleEnum.ADMIN,
+    }
+    await db_session.commit()
+
+    response = await client.post("/admin/group_change/", json=data, headers=headers)
+    assert response.status_code == 404, f"Expected status code 404, but got {response.status_code}"
+
+    await db_session.refresh(new_user)
+
+    stmt_check = select(UserModel).where(UserModel.id == new_user.id).options(
+        selectinload(UserModel.group)
+    )
+    result_check = await db_session.execute(stmt_check)
+    new_user_check = result_check.scalars().first()
+
+    assert data["role"] != new_user_check.group, "User role updated."
+
+@pytest.mark.asyncio
+async def test_activate_account_using_admin(client, db_session):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.ADMIN)
+
+    await db_session.rollback()
+
+    new_user = await auth.create_user(
+        email="new_user_email@example.com",
+        password="StroNGPassword@!!123",
+        group_name=UserGroupEnum.USER,
+        is_active=False
+    )
+
+    data = {
+        "email": "new_user_email@example.com",
+    }
+
+    response = await client.post("/admin/activate_account/", json=data, headers=headers)
+    assert response.status_code == 200, f"Expected status code 200, but got {response.status_code}"
+
+    await db_session.refresh(new_user)
+
+    stmt_check = select(UserModel).where(UserModel.id == new_user.id)
+    result_check = await db_session.execute(stmt_check)
+    new_user_check = result_check.scalar_one_or_none()
+
+    assert new_user_check.is_active == True, "The user was not activated by an admin."
+
+
+@pytest.mark.asyncio
+async def test_activate_account_using_user_not_permission(client, db_session):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
+
+    await db_session.rollback()
+
+    new_user = await auth.create_user(
+        email="new_user_email@example.com",
+        password="StroNGPassword@!!123",
+        group_name=UserGroupEnum.USER,
+        is_active=False
+    )
+
+    data = {
+        "email": "new_user_email@example.com",
+    }
+
+    response = await client.post("/admin/activate_account/", json=data, headers=headers)
+    assert response.status_code == 404, f"Expected status code 404, but got {response.status_code}"
+
+    await db_session.refresh(new_user)
+
+    stmt_check = select(UserModel).where(UserModel.id == new_user.id)
+    result_check = await db_session.execute(stmt_check)
+    new_user_check = result_check.scalar_one_or_none()
+
+    assert new_user_check.is_active == False, "The user was activated by an user."
