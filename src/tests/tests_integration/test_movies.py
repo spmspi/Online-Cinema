@@ -515,7 +515,7 @@ async def test_get_movie_by_id_fields_match_database(client, db_session, seed_da
 
 @pytest.mark.asyncio
 async def test_post_score_movie(client, db_session, seed_database):
-
+    """Testing the film rating system (from 1 to 10) and verifying the rating validator for negative values and values greater than 10."""
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
 
@@ -567,6 +567,7 @@ async def test_post_score_movie(client, db_session, seed_database):
 
 @pytest.mark.asyncio
 async def test_favorite_movie(client, db_session, seed_database):
+    """verifying the addition of a movie to favorites"""
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
 
@@ -586,6 +587,7 @@ async def test_favorite_movie(client, db_session, seed_database):
 
 @pytest.mark.asyncio
 async def test_delete_favorite_movie(client, db_session, seed_database):
+    """verifying delete of a movie in favorites"""
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
 
@@ -611,6 +613,7 @@ async def test_delete_favorite_movie(client, db_session, seed_database):
 
 @pytest.mark.asyncio
 async def test_get_favorite_movies(client, db_session, seed_database):
+    """Verifying the endpoint's response to a GET request, and checking pagination."""
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
 
@@ -642,6 +645,7 @@ async def test_get_favorite_movies(client, db_session, seed_database):
 
 @pytest.mark.asyncio
 async def test_get_favorite_movie_not_favorite(client, db_session, seed_database):
+    """Verifying what the endpoint returns for a GET request when there are no movies in the list"""
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
 
@@ -685,7 +689,7 @@ async def test_movies_filter_dy_name_in_favorite(client, db_session, seed_databa
 @pytest.mark.asyncio
 async def test_movies_filter_dy_star_name_in_favorite(client, db_session, seed_database):
     """
-    testing search by star in movie
+    testing search by star in favorites
     """
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
@@ -746,7 +750,7 @@ async def test_movies_filter_dy_star_name_in_favorite(client, db_session, seed_d
 @pytest.mark.asyncio
 async def test_movies_filter_dy_director_name(client, db_session, seed_database):
     """
-    testing search by director in movie
+    testing search by director in favorites
     """
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
@@ -805,6 +809,7 @@ async def test_movies_filter_dy_director_name(client, db_session, seed_database)
 
 @pytest.mark.asyncio
 async def test_add_movie_not_found_in_favorite(client, db_session):
+    """test of adding a non-existent film to favorites"""
     auth = AuthTestHelper(client, db_session)
     headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
 

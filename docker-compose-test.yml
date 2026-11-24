@@ -25,6 +25,10 @@ services:
     depends_on:
       mailhog:
         condition: service_started
+      minio:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
     volumes:
       - ./src:/usr/src/fastapi/src
     networks:

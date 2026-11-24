@@ -21,7 +21,7 @@ from src.security.interface_token import JWTAuthManagerInterface
 from src.security.secret_token import get_token
 from src.storage.interfaces import S3StorageInterface
 
-router = APIRouter(tags=["Profiles"])
+router = APIRouter(tags=["Profiles"], prefix="/profiles")
 
 
 @router.post(

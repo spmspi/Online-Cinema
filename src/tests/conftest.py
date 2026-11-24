@@ -7,7 +7,7 @@ from src.database.models.movies import MovieModel
 from src.lifespan import init_default_groups, init_test_movies
 from src.security.interface_token import JWTAuthManagerInterface
 from src.security.token_manager import JWTAuthManager
-from src.config.dependencies import get_accounts_email_notificator, get_s3_storage_client, get_settings
+from src.dependencies.service import get_accounts_email_notificator, get_s3_storage_client, get_settings
 from src.dependencies.activity import get_user_activity_repository
 from src.tests.doubles.fakes.storage import FakeS3Storage
 from src.tests.doubles.stubs.emails import StubEmailSender
@@ -20,9 +20,13 @@ from src.database import (
     UserGroupEnum,
     UserGroupModel
 )
-from storage.s3 import S3StorageClient
+from src.storage.s3 import S3StorageClient
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "unit: Unit tests"
+    )
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def _app_lifespan():

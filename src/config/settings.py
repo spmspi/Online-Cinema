@@ -46,6 +46,11 @@ class BaseAppSettings(BaseSettings):
     ME_CONFIG_BASICAUTH_USERNAME: str = os.getenv("ME_CONFIG_BASICAUTH_USERNAME", "admin")
     ME_CONFIG_BASICAUTH_PASSWORD: str = os.getenv("ME_CONFIG_BASICAUTH_PASSWORD", "some_password")
 
+    @property
+    def S3_STORAGE_ENDPOINT(self) -> str:
+        return f"http://{self.S3_STORAGE_HOST}:{self.S3_STORAGE_PORT}"
+
+
 
 
 
@@ -69,10 +74,6 @@ class Settings(BaseAppSettings):
     STRIPE_WEBHOOK_SECRET: str = os.getenv(
         "STRIPE_WEBHOOK_SECRET", "secret_webhook_key"
     )
-
-    @property
-    def S3_STORAGE_ENDPOINT(self) -> str:
-        return f"http://{self.S3_STORAGE_HOST}:{self.S3_STORAGE_PORT}"
 
 
 
