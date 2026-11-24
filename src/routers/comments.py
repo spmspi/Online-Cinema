@@ -22,7 +22,7 @@ from src.database.models.comments import CommentModel, SubCommentModel, CommentL
 router = APIRouter(tags=["Comments"])
 
 
-@router.post("/comment/{movie_id}/", response_model=CommentResponseSchema)
+@router.post("/comment/{movie_id}/", response_model=CommentResponseSchema, status_code=201)
 async def add_movie_comment(
     comment: CommentRequestSchema,
     movie: MovieModel = Depends(get_movie_or_404),
@@ -81,7 +81,7 @@ async def get_movie_comments(
 
 
 @router.post(
-    "/movie_comments/{comment_id}/", response_model=ResponseSubCommentSchema
+    "/movie_comments/{comment_id}/", response_model=ResponseSubCommentSchema, status_code=201
 )
 async def add_sub_comment(
     comment: CommentRequestSchema,
@@ -120,10 +120,11 @@ async def get_sub_comment(
         )
 
         result = await db.execute(stmt_sub)
-        comments = result.scalars().all()
-        comments_list = [SubCommetBaseSchema.model_validate(com) for com in comments]
         total_items = await pagination.get_total_items(db, stmt_sub)
-        total_pages = (total_items + pagination.limit - 1) // pagination.limit
+        total_pages = (total_items + pagination.limit - 1) // pagination.limit if total_items > 0 else 0
+
+        comments = await pagination.get_paginated_items(db, stmt_sub)
+        comments_list = [SubCommetBaseSchema.model_validate(com) for com in comments]
         return GetSubCommentsResponseSchema(
             parent_comment=comment_in_db,
             comments=comments_list,
@@ -140,7 +141,7 @@ async def get_sub_comment(
 
 
 
-@router.post("/{comment_id}/like", response_model=CommentLikeResponseSchema)
+@router.post("/{comment_id}/like/", response_model=CommentLikeResponseSchema)
 async def add_comment_like(
     request_like: CommentLikeRequestSchema,
     comment_in_db: CommentModel = Depends(get_comment_or_404),

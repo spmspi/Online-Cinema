@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class CommentRequestSchema(BaseModel):
@@ -19,8 +19,8 @@ class CommentResponseSchema(CommentRequestSchema):
     dislikes_count: int = 0
 
 
-    @field_validator("created_at")
-    def read_created_at(cls, value: datetime) -> str:
+    @field_serializer("created_at")
+    def read_created_at(self, value: datetime) -> str:
         return value.strftime("%d.%m.%Y %H:%M")
 
 
@@ -50,8 +50,8 @@ class SubCommetBaseSchema(BaseModel):
     dislikes_count: int
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("created_at")
-    def read_created_at(cls, value: datetime) -> str:
+    @field_serializer("created_at")
+    def read_created_at(self, value: datetime) -> str:
         return value.strftime("%d.%m.%Y %H:%M")
 
 
