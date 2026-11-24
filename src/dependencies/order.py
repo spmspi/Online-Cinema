@@ -48,7 +48,7 @@ async def get_order_by_id(
     order = res.scalar_one_or_none()
     if not order:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found."
         )
 
     return order

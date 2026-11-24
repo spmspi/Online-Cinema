@@ -107,5 +107,14 @@ async def test_exceptions_cart(client, db_session, seed_cart_movies, seed_databa
     expected_detail = {"detail": "This movie is already in the cart."}
     assert response_two.json() == expected_detail, f"Expected {expected_detail}, got {response_two.json()}"
 
+@pytest.mark.asyncio
+async def test_clear_cart_for_empty_cart(client, db_session, seed_database, seed_cart_movies):
+    auth = AuthTestHelper(client, db_session)
+    headers = await auth.get_auth_headers(group_name=UserGroupEnum.USER)
 
+    response = await client.delete("/cart/", headers=headers)
+    assert response.status_code == 404, "Expected status code 404, but got a different value"
+
+    expected_detail = {"detail": "The cart is empty"}
+    assert response.json() == expected_detail, f"Expected {expected_detail}, got {response.json()}"
 

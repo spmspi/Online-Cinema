@@ -20,12 +20,16 @@ from src.database import get_db
 router = APIRouter(tags=["order"])
 
 
-@router.post("/order/", response_model=OrderSchema)
+@router.post("/order/", response_model=OrderSchema, status_code=status.HTTP_201_CREATED)
 async def create_order(
     cart: CartModel = Depends(get_cart_in_current_user),
     order_in_pending: OrdersModel = Depends(check_unpaid_order),
     db: AsyncSession = Depends(get_db),
 ):
+    if cart.cart_items == []:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="The cart is empty"
+        )
     if order_in_pending:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="You have unpaid orders."
@@ -115,7 +119,7 @@ async def get_order_detail(
     order = res.scalar_one_or_none()
     if not order:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found."
         )
 
     movie_list = [
@@ -129,7 +133,7 @@ async def get_order_detail(
     )
 
 
-@router.patch("/order/{order_id}/cancel", response_model=MessageResponseSchema)
+@router.patch("/order/{order_id}/cancel/", response_model=MessageResponseSchema)
 async def cancel_order(
     order: OrdersModel = Depends(get_order_by_id),
     db: AsyncSession = Depends(get_db),

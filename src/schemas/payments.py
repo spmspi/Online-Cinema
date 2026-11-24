@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, field_serializer
 
 from src.database.models.accounts import UserModel
 
@@ -16,8 +16,8 @@ class PaymentsSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("created_at")
-    def read_created_at(cls, value: datetime) -> str:
+    @field_serializer("created_at")
+    def read_created_at(self, value: datetime) -> str:
         return value.strftime("%d.%m.%Y %H:%M")
 
 
