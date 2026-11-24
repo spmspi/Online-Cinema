@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload, selectinload
 
-from database import UserGroupModel, UserGroupEnum, UserModel
+from src.database import UserGroupModel, UserGroupEnum, UserModel
 from src.database import MovieModel, DirectorModel
 from src.database import (
     GenreModel,
@@ -720,7 +720,7 @@ async def test_movies_filter_dy_star_name_in_favorite(client, db_session, seed_d
             StarModel.name.ilike("Leonardo DiCaprio"),
         )
         .order_by(*MovieModel.default_order_by())
-    )
+    ).limit(10)
     result = await db_session.execute(stmt)
     search_results = result.scalars().all()
 

@@ -34,7 +34,7 @@ async def get_cart(
     )
 
 
-@router.post("/cart/{movie_id}", response_model=MessageResponseSchema)
+@router.post("/cart/{movie_id}/", response_model=MessageResponseSchema)
 async def add_movie_in_cart(
     cart: CartModel = Depends(get_cart_in_current_user),
     movie: MovieModel = Depends(get_movie_or_404),
@@ -69,7 +69,7 @@ async def add_movie_in_cart(
     return {"message": "movie added to cart"}
 
 
-@router.delete("/cart/{movie_id}", response_model=MessageResponseSchema)
+@router.delete("/cart/{movie_id}/", response_model=MessageResponseSchema)
 async def remove_movie_in_cart(
     cart: CartModel = Depends(get_cart_in_current_user),
     movie: MovieModel = Depends(get_movie_or_404),

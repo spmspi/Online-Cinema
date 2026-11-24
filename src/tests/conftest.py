@@ -278,3 +278,21 @@ async def seed_database(db_session: AsyncSession):
     return movies
 
 
+@pytest_asyncio.fixture
+async def seed_cart_movies(client, db_session, seed_database):
+    async def add(headers: dict[str, str], count: int = 5) -> list[int]:
+        stmt = select(MovieModel.id).order_by(MovieModel.id.asc()).limit(count)
+        result = await db_session.execute(stmt)
+        movie_ids = list(result.scalars().all())
+
+        for movie_id in movie_ids:
+            response = await client.post(f"/cart/{movie_id}/", headers=headers)
+            assert response.status_code == 200, (
+                f"Expected status code 200 when adding movie {movie_id}, got {response.status_code}"
+            )
+
+        return movie_ids
+
+    return add
+
+

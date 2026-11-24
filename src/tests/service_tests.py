@@ -55,3 +55,9 @@ class AuthTestHelper:
         await self.create_user(email=email, password=password, group_name=group_name)
         token = await self.get_access_token(email=email, password=password)
         return {"Authorization": f"Bearer {token}"}
+
+    async def get_user(self, email: str = "testuser@example.com") -> UserModel:
+        stmt = select(UserModel).where(UserModel.email == email)
+        result = await self.db_session.execute(stmt)
+        user = result.scalar_one_or_none()
+        return user
